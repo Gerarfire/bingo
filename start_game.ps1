@@ -13,10 +13,17 @@ if (-not (Test-Path ".\manage.py")) {
     exit 1
 }
 
-$pythonExe = (Get-Command python -ErrorAction SilentlyContinue).Source
-if (-not $pythonExe) {
-    Write-Host "❌ No se encontró Python en el PATH" -ForegroundColor Red
-    exit 1
+$venvPython = Join-Path $scriptDir '.venv\Scripts\python.exe'
+if (Test-Path $venvPython) {
+    $pythonExe = $venvPython
+    Write-Host "🐍 Usando Python de entorno virtual: $pythonExe" -ForegroundColor Green
+} else {
+    $pythonExe = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if (-not $pythonExe) {
+        Write-Host "❌ No se encontró Python en el PATH ni en .venv" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "🐍 Usando Python global: $pythonExe" -ForegroundColor Yellow
 }
 
 function Find-FreePort {
