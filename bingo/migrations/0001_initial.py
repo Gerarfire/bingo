@@ -222,7 +222,7 @@ class Migration(migrations.Migration):
                 'verbose_name': 'Regalo/Premio',
                 'verbose_name_plural': 'Catálogo de Regalos',
                 'db_table': 'Regalo',
-                'constraints': [models.CheckConstraint(condition=models.Q(('estadoregalo__in', ['Acumulado', 'Sorteado', 'Entregado'])), name='chk_regalo_estadoregalo')],
+                'constraints': [models.CheckConstraint(check=models.Q(estadoregalo__in=['Acumulado', 'Sorteado', 'Entregado']), name='chk_regalo_estadoregalo')],
             },
         ),
         migrations.AddField(
@@ -300,7 +300,7 @@ class Migration(migrations.Migration):
                 'verbose_name': 'Sesión de Juego',
                 'verbose_name_plural': 'Sesiones de Juego',
                 'db_table': 'SesionJuego',
-                'constraints': [models.CheckConstraint(condition=models.Q(('estadosesion__in', ['Activa', 'Finalizada', 'Caida'])), name='chk_sesionjuego_estadosesion')],
+                'constraints': [models.CheckConstraint(check=models.Q(estadosesion__in=['Activa', 'Finalizada', 'Caida']), name='chk_sesionjuego_estadosesion')],
             },
         ),
         migrations.CreateModel(
@@ -319,7 +319,7 @@ class Migration(migrations.Migration):
                 'verbose_name': 'Cuenta Bancaria',
                 'verbose_name_plural': 'Cuentas Bancarias',
                 'db_table': 'CuentaBancaria',
-                'constraints': [models.UniqueConstraint(condition=models.Q(('esprincipal', True)), fields=('idsocio',), name='uq_cuentabancaria_esprincipal_por_socio')],
+                'constraints': [models.UniqueConstraint(fields=('idsocio',), condition=models.Q(esprincipal=True), name='uq_cuentabancaria_esprincipal_por_socio')],
             },
         ),
         migrations.CreateModel(
@@ -340,7 +340,7 @@ class Migration(migrations.Migration):
                 'verbose_name': 'Aporte Semanal',
                 'verbose_name_plural': 'Control de Aportes Semanales',
                 'db_table': 'AporteSemanal',
-                'constraints': [models.CheckConstraint(condition=models.Q(('estadoaporte__in', ['Al Dia', 'Atrasado'])), name='chk_aportesemanal_estadoaporte'), models.CheckConstraint(condition=models.Q(('metodoingreso__in', ['Efectivo', 'Transferencia', 'Fisico'])), name='chk_aportesemanal_metodoingreso')],
+                'constraints': [models.CheckConstraint(check=models.Q(estadoaporte__in=['Al Dia', 'Atrasado']), name='chk_aportesemanal_estadoaporte'), models.CheckConstraint(check=models.Q(metodoingreso__in=['Efectivo', 'Transferencia', 'Fisico']), name='chk_aportesemanal_metodoingreso')],
             },
         ),
     ]

@@ -22,6 +22,7 @@ urlpatterns = [
     path('registro-socio/', views.registro_socio, name='registro_socio'),
     path('registro-jugador/', views.registro_jugador, name='registro_jugador'),
     path('mis-cartones/', views.mis_cartones, name='mis_cartones'),
+    path('mis-cartones/<int:id_bingo>/pdf/', views.descargar_cartones_pdf, name='descargar_cartones_pdf'),
     path('venta-cartones/', views.venta_cartones, name='venta_cartones'),
     path('bingo/', views.bingo_publico, name='bingo'),
     path('bingo-publico/', views.bingo_publico, name='bingo_publico'),

@@ -3,7 +3,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.core.validators import MinValueValidator , MaxValueValidator
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 # Create your models here.
@@ -634,6 +634,7 @@ class Jugador(models.Model):
         verbose_name_plural = 'Jugadores'
 class PartidaBingo(models.Model):
     ESTADO_PARTIDA_CHOICES = [
+        ('Programada', 'Programada'),
         ('En Juego', 'En Juego'),
         ('Verificando', 'Verificando'),
         ('Desempate', 'Desempate'),
@@ -664,6 +665,13 @@ class PartidaBingo(models.Model):
         validators=[MinValueValidator(Decimal('0.00'))],
         verbose_name="Premio en Efectivo"
     )
+    valorpremio = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name="Premio en Efectivo (Alias)"
+    )
     premiomaterial = models.CharField(
         max_length=150, 
         verbose_name="Premio Material"
@@ -671,13 +679,15 @@ class PartidaBingo(models.Model):
     estadopartida = models.CharField(
         max_length=20, 
         choices=ESTADO_PARTIDA_CHOICES, 
-        default='En Juego',
+        default='Programada',
         verbose_name="Estado de la Partida"
     )
     bolascantadas = models.TextField(
+        default='',
         verbose_name="Historial de Bolas Cantadas"
     )
     ultimabola = models.IntegerField(
+        default=0,
         verbose_name="Última Bola Cantada"
     )
     haydesempate = models.BooleanField(
@@ -698,7 +708,28 @@ class PartidaBingo(models.Model):
     )   
     horainicio = models.DateTimeField(
         verbose_name="Hora de Inicio"
-    )   
+    )
+    horainiciopartida = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Hora de Inicio de la Partida"
+    )
+    modalidad_victoria = models.CharField(
+        max_length=50,
+        default='Tabla Llena',
+        verbose_name="Modalidad de Victoria"
+    )
+    estadopremiomaterial = models.CharField(
+        max_length=20,
+        default='Ninguno',
+        verbose_name="Estado del Premio Material"
+    )
+    sorteodesempate = models.JSONField(
+        default=dict,
+        blank=True,
+        null=True,
+        verbose_name="Sorteo de Desempate"
+    )
     horafin = models.DateTimeField(
         null=True, 
         blank=True, 
@@ -706,6 +737,47 @@ class PartidaBingo(models.Model):
     )
 
 
+
+    @property
+    def valorpremio_alias(self):
+        return self.valorpremio
+
+    @valorpremio_alias.setter
+    def valorpremio_alias(self, value):
+        self.valorpremio = value
+
+    @property
+    def valorpremio(self):
+        if self.valorefectivo is not None:
+            try:
+                return Decimal(self.valorefectivo)
+            except (TypeError, ValueError, InvalidOperation):
+                return self.valorefectivo
+        if hasattr(self, '_valorpremio') and self._valorpremio is not None:
+            try:
+                return Decimal(self._valorpremio)
+            except (TypeError, ValueError, InvalidOperation):
+                return self._valorpremio
+        return Decimal('0.00')
+
+    @valorpremio.setter
+    def valorpremio(self, value):
+        try:
+            self.valorefectivo = Decimal(value)
+        except (TypeError, ValueError, InvalidOperation):
+            self.valorefectivo = value
+        try:
+            self._valorpremio = Decimal(value)
+        except (TypeError, ValueError, InvalidOperation):
+            self._valorpremio = value
+
+    @property
+    def horainiciopartida_alias(self):
+        return self.horainiciopartida or self.horainicio
+
+    @horainiciopartida_alias.setter
+    def horainiciopartida_alias(self, value):
+        self.horainiciopartida = value
 
     def __str__(self):
         return f"{self.nombreronda} - Bingo {self.idbingo_id} ({self.estadopartida})"
@@ -968,7 +1040,7 @@ class SesionJuego(models.Model):
         
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(estadosesion__in=['Activa', 'Finalizada', 'Caida']),
+                check=models.Q(estadosesion__in=['Activa', 'Finalizada', 'Caida']),
                 name='chk_sesionjuego_estadosesion'
             )
         ]
@@ -1030,7 +1102,7 @@ class Regalo(models.Model):
         verbose_name_plural = 'Catálogo de Regalos'
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(estadoregalo__in=['Acumulado', 'Sorteado', 'Entregado']),
+                check=models.Q(estadoregalo__in=['Acumulado', 'Sorteado', 'Entregado']),
                 name='chk_regalo_estadoregalo'
             )
         ]
@@ -1113,11 +1185,11 @@ class AporteSemanal(models.Model):
         verbose_name_plural = 'Control de Aportes Semanales'
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(estadoaporte__in=['Al Dia', 'Atrasado']),
+                check=models.Q(estadoaporte__in=['Al Dia', 'Atrasado']),
                 name='chk_aportesemanal_estadoaporte'
             ),
             models.CheckConstraint(
-                condition=models.Q(metodoingreso__in=['Efectivo', 'Transferencia', 'Fisico']),
+                check=models.Q(metodoingreso__in=['Efectivo', 'Transferencia', 'Fisico']),
                 name='chk_aportesemanal_metodoingreso'
             )
         ]
@@ -1128,8 +1200,44 @@ class UnidadMonetaria(models.Model):
     simbolo = models.CharField(max_length=10, null=True, blank=True)
 
     @property
+    def nombremoneda(self):
+        return self.nombre
+
+    @nombremoneda.setter
+    def nombremoneda(self, value):
+        self.nombre = value
+
+    @property
     def simbolomoneda(self):
         return self.simbolo or ''
+
+    @simbolomoneda.setter
+    def simbolomoneda(self, value):
+        self.simbolo = value
+
+    @property
+    def tipomoneda(self):
+        return getattr(self, '_tipomoneda', 'Efectivo')
+
+    @tipomoneda.setter
+    def tipomoneda(self, value):
+        self._tipomoneda = value
+
+    @property
+    def tasaconversionmoneda(self):
+        return getattr(self, '_tasaconversionmoneda', Decimal('1.00'))
+
+    @tasaconversionmoneda.setter
+    def tasaconversionmoneda(self, value):
+        self._tasaconversionmoneda = value
+
+    @property
+    def estadomoneda(self):
+        return getattr(self, '_estadomoneda', True)
+
+    @estadomoneda.setter
+    def estadomoneda(self, value):
+        self._estadomoneda = value
 
     def __str__(self):
         return f"{self.nombre} ({self.simbolo})" if self.simbolo else self.nombre
