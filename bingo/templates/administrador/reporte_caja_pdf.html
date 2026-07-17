@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cierre de Caja Semanal</title>
+    <style>
+        @page { size: A4 portrait; margin: 1.5cm; }
+        body { font-family: Helvetica, Arial, sans-serif; color: #333; }
+        .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #1e1b4b; padding-bottom: 10px; }
+        .title { font-size: 22px; font-weight: bold; color: #1e1b4b; text-transform: uppercase; }
+        .subtitle { font-size: 13px; color: #666; margin-top: 4px; }
+        
+        .summary-box { background-color: #f3f4f6; border: 1px solid #d1d5db; padding: 12px; margin-bottom: 25px; border-radius: 6px; }
+        .summary-text { font-size: 14px; margin: 4px 0; }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .data-table th { background-color: #f59e0b; color: white; padding: 8px; border: 1px solid #d1d5db; text-align: left; }
+        .data-table td { padding: 8px; border: 1px solid #d1d5db; }
+        .status-ok { color: #166534; font-weight: bold; }
+        .status-bad { color: #991b1b; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">COOPBINGO - REPORTE DE CAJA SEMANAL</div>
+        <div class="subtitle">Documento Financiero de Auditoría | Emitido: {{ fecha_reporte|date:"d/m/Y H:i" }}</div>
+    </div>
+
+
+
+    <div class="summary-box">
+        <div class="summary-text"><strong>Total Efectivo Recaudado (Al Día):</strong> ${{ total_recaudado }}</div>
+        <div class="summary-text"><strong>Total en Cartera Vencida (Pendiente):</strong> ${{ total_pendiente }}</div>
+    </div>
+
+
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Semana Planificada</th>
+                <th>Socio Afiliado</th>
+                <th>Monto</th>
+                <th>Estado de Pago</th>
+                <th>Método Canal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ap in aportes %}
+            <tr>
+                <td>Semana {{ ap.numerosemana }} - {{ ap.fechaplanificadadada|date:"d/m/Y" }}</td>
+                <td>{{ ap.idsocio.primerapellidosocio }} {{ ap.idsocio.primernombresocio }}</td>
+                <td>${{ ap.montoaportesemanal }}</td>
+                <td class="{% if ap.estadoaporte == 'Al Dia' %}status-ok{% else %}status-bad{% endif %}">{{ ap.estadoaporte|upper }}</td>
+                <td>{{ ap.metodoingreso|default:"No registrado" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

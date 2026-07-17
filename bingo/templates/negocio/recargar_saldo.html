@@ -1,0 +1,475 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Recargar Saldo - CoopBingo{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/animaciones.css' %}">
+<style>
+    .hero-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 60px 20px;
+        border-radius: 15px;
+        margin-bottom: 40px;
+        text-align: center;
+    }
+    .hero-section h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .hero-section p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+
+    .saldo-card {
+        background: #f8f9fa;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 25px;
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    .saldo-card .label {
+        color: #6c757d;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+    }
+    .saldo-card .amount {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    .montos-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    .monto-btn {
+        border: 2px solid #dee2e6;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #495057;
+    }
+    .monto-btn:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        transform: translateY(-3px);
+    }
+    .monto-btn.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+    }
+
+    .custom-monto {
+        display: none;
+    }
+    .custom-monto.show {
+        display: block;
+    }
+    .custom-monto input {
+        width: 100%;
+        padding: 15px;
+        font-size: 1.2rem;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    .custom-monto input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .resumen-recarga {
+        background: #e7f3ff;
+        border-left: 4px solid #2196F3;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: none;
+    }
+    .resumen-recarga.show {
+        display: block;
+    }
+    .resumen-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 10px 0;
+        font-size: 1.05rem;
+    }
+    .resumen-row.total {
+        border-top: 2px solid #2196F3;
+        padding-top: 10px;
+        font-weight: bold;
+        color: #2196F3;
+        font-size: 1.3rem;
+    }
+
+    .btn-recarga {
+        width: 100%;
+        padding: 15px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-bottom: 10px;
+    }
+    .btn-recarga:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .info-box {
+        background: #f0f7ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 30px;
+        color: #004085;
+    }
+    .info-box i {
+        color: #2196F3;
+        margin-right: 10px;
+    }
+
+    .method-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    .method-card {
+        border: 2px solid #dee2e6;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: white;
+    }
+    .method-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+    .method-card.selected {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    .method-card i {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        display: block;
+    }
+    .method-card .label {
+        font-size: 0.9rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5 bg-body-tertiary min-vh-100">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-9">
+            <!-- HERO SECTION -->
+            <div class="hero-section animate__animated animate__fadeInDown">
+                <h1>
+                    <i class="fas fa-wallet me-2"></i>
+                    Recargar Saldo
+                </h1>
+                <p>Agrega crédito a tu cuenta para comprar cartones y jugar</p>
+            </div>
+
+            <!-- SALDO ACTUAL -->
+            <div class="saldo-card animate__animated animate__fadeInUp">
+                <div class="label">Saldo Disponible</div>
+                <div class="amount">${{ saldo_actual }}</div>
+                <small class="text-muted">Este es tu saldo actual para comprar cartones</small>
+            </div>
+
+            <!-- TARJETA PRINCIPAL -->
+            <div class="card-minimalista p-5 shadow border border-2 animate__animated animate__fadeInUp">
+                <!-- MÉTODO DE PAGO -->
+                <h5 class="fw-bold mb-4">
+                    <i class="fas fa-credit-card text-primary me-2"></i>
+                    Selecciona un Método
+                </h5>
+                <div class="method-selector">
+                    <div class="method-card selected" onclick="seleccionarMetodo('tarjeta', this)">
+                        <i class="fas fa-credit-card text-success"></i>
+                        <div class="label">Tarjeta de Crédito/Débito</div>
+                    </div>
+                    <div class="method-card" onclick="seleccionarMetodo('transferencia', this)">
+                        <i class="fas fa-university text-info"></i>
+                        <div class="label">Transferencia Bancaria</div>
+                    </div>
+                    <div class="method-card" onclick="seleccionarMetodo('efectivo', this)">
+                        <i class="fas fa-money-bill text-warning"></i>
+                        <div class="label">Pago en Efectivo</div>
+                    </div>
+                </div>
+
+                <!-- MONTOS PREDEFINIDOS -->
+                <h5 class="fw-bold mb-4 mt-5">
+                    <i class="fas fa-coins text-warning me-2"></i>
+                    Selecciona un Monto o Personaliza
+                </h5>
+                <div class="montos-grid" id="montos-grid">
+                    {% for monto in montos_predefinidos %}
+                    <button type="button" class="monto-btn" onclick="seleccionarMonto({{ monto.valor }}, this)">
+                        {{ monto.label }}
+                    </button>
+                    {% endfor %}
+                    <button type="button" class="monto-btn" onclick="toggleCustomMonto(this)">
+                        <i class="fas fa-edit me-1"></i> Otro
+                    </button>
+                </div>
+
+                <!-- MONTO PERSONALIZADO -->
+                <div class="custom-monto" id="custom-monto">
+                    <label class="form-label fw-bold">¿Cuánto deseas recargar?</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="custom-amount" min="1" max="5000" step="0.01" 
+                               placeholder="Ej: 150.00" class="form-control form-control-lg"
+                               onchange="seleccionarMontoCustom(this.value)">
+                    </div>
+                    <small class="text-muted">Mínimo: $1 | Máximo: $5000</small>
+                </div>
+
+                <!-- RESUMEN -->
+                <div class="resumen-recarga" id="resumen">
+                    <div class="resumen-row">
+                        <span>Saldo Actual:</span>
+                        <strong>${{ saldo_actual }}</strong>
+                    </div>
+                    <div class="resumen-row">
+                        <span>Monto a Recargar:</span>
+                        <strong id="monto-resumen">$0.00</strong>
+                    </div>
+                    <div class="resumen-row total">
+                        <span>Saldo Nuevo:</span>
+                        <strong id="saldo-nuevo">${{ saldo_actual }}</strong>
+                    </div>
+                </div>
+
+                <!-- BOTONES DE ACCIÓN -->
+                <button type="button" class="btn btn-success btn-recarga" id="btn-recarga" 
+                        onclick="procesarRecarga()" disabled>
+                    <i class="fas fa-check-circle me-2"></i> Confirmar Recarga
+                </button>
+                <a href="{% url 'inicio' %}" class="btn btn-outline-secondary btn-recarga">
+                    <i class="fas fa-arrow-left me-2"></i> Volver al Inicio
+                </a>
+
+                <!-- INFO -->
+                <div class="info-box mt-4">
+                    <div>
+                        <i class="fas fa-shield-alt"></i>
+                        <strong>Seguro y Confiable</strong>
+                        <p class="mb-0" style="font-size: 0.9rem;">Todas las transacciones están protegidas y encriptadas</p>
+                    </div>
+                </div>
+
+                <!-- BENEFICIOS -->
+                <div class="row mt-5 text-center">
+                    <div class="col-md-4 mb-3">
+                        <i class="fas fa-bolt text-warning" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 fw-bold">Recarga Instantánea</h6>
+                        <small class="text-muted">El crédito se agrega inmediatamente</small>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <i class="fas fa-lock text-success" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 fw-bold">100% Seguro</h6>
+                        <small class="text-muted">Datos encriptados y protegidos</small>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <i class="fas fa-undo text-info" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 fw-bold">Sin Límite</h6>
+                        <small class="text-muted">Recarga cuantas veces quieras</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE CONFIRMACIÓN -->
+<div class="modal fade" id="modalConfirma" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i> Confirmar Recarga
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="lead">Vas a recargar tu saldo en tu cuenta</p>
+                <div class="alert alert-info">
+                    <strong>Monto a recargar:</strong> $<span id="modal-monto">0.00</span>
+                    <br>
+                    <strong>Saldo después:</strong> $<span id="modal-saldo">0.00</span>
+                </div>
+                <p class="small text-muted">El crédito se agregará instantáneamente a tu cuenta</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmarRecarga()">
+                    <i class="fas fa-check me-2"></i> Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const saldoActual = parseFloat('{{ saldo_actual }}');
+const urlRecarga = '{% url "procesar_recarga_saldo" %}';
+
+let montoSeleccionado = 0;
+let metodoSeleccionado = 'tarjeta';
+
+function seleccionarMetodo(metodo, elemento) {
+    metodoSeleccionado = metodo;
+    document.querySelectorAll('.method-card').forEach(el => el.classList.remove('selected'));
+    elemento.classList.add('selected');
+}
+
+function seleccionarMonto(monto, elemento) {
+    // Cerrar custom si estaba abierto
+    document.getElementById('custom-monto').classList.remove('show');
+    document.getElementById('custom-amount').value = '';
+    
+    montoSeleccionado = parseFloat(monto);
+    
+    // Actualizar UI
+    document.querySelectorAll('.monto-btn').forEach(btn => btn.classList.remove('selected'));
+    elemento.classList.add('selected');
+    
+    actualizarResumen();
+}
+
+function toggleCustomMonto(elemento) {
+    const customDiv = document.getElementById('custom-monto');
+    customDiv.classList.toggle('show');
+    
+    if (customDiv.classList.contains('show')) {
+        elemento.classList.add('selected');
+        document.querySelectorAll('.monto-btn:not([onclick*="toggleCustomMonto"])').forEach(btn => btn.classList.remove('selected'));
+        document.getElementById('custom-amount').focus();
+    } else {
+        elemento.classList.remove('selected');
+        montoSeleccionado = 0;
+        actualizarResumen();
+    }
+}
+
+function seleccionarMontoCustom(valor) {
+    montoSeleccionado = parseFloat(valor) || 0;
+    
+    if (montoSeleccionado < 1) {
+        alert('El monto mínimo es $1');
+        return;
+    }
+    if (montoSeleccionado > 5000) {
+        alert('El monto máximo es $5000');
+        document.getElementById('custom-amount').value = '5000';
+        montoSeleccionado = 5000;
+    }
+    
+    actualizarResumen();
+}
+
+function actualizarResumen() {
+    const resumen = document.getElementById('resumen');
+    const btnRecarga = document.getElementById('btn-recarga');
+    
+    if (montoSeleccionado > 0) {
+        const nuevoSaldo = saldoActual + montoSeleccionado;
+        
+        document.getElementById('monto-resumen').textContent = `$${montoSeleccionado.toFixed(2)}`;
+        document.getElementById('saldo-nuevo').textContent = `$${nuevoSaldo.toFixed(2)}`;
+        
+        resumen.classList.add('show');
+        btnRecarga.disabled = false;
+    } else {
+        resumen.classList.remove('show');
+        btnRecarga.disabled = true;
+    }
+}
+
+function procesarRecarga() {
+    if (montoSeleccionado <= 0) {
+        alert('Por favor selecciona un monto');
+        return;
+    }
+    
+    const nuevoSaldo = saldoActual + montoSeleccionado;
+    document.getElementById('modal-monto').textContent = montoSeleccionado.toFixed(2);
+    document.getElementById('modal-saldo').textContent = nuevoSaldo.toFixed(2);
+    
+    new bootstrap.Modal(document.getElementById('modalConfirma')).show();
+}
+
+async function confirmarRecarga() {
+    const btnConfirmar = event.target;
+    btnConfirmar.disabled = true;
+    btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+    
+    try {
+        const response = await fetch(urlRecarga, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                monto: montoSeleccionado
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            alert(`❌ Error: ${data.error}`);
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';
+            return;
+        }
+        
+        // Éxito
+        alert(`✅ ${data.mensaje}\n\nNuevo saldo: $${data.saldo_nuevo}`);
+        
+        // Redirigir después de 2 segundos
+        setTimeout(() => {
+            window.location.href = '{% url "inicio" %}';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error en la transacción: ' + error.message);
+        btnConfirmar.disabled = false;
+        btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';
+    }
+}
+</script>
+{% endblock %}

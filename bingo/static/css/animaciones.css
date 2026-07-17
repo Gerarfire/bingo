@@ -1,0 +1,239 @@
+
+/* =======================================================
+   ANIMACIONES.CSS - MOTOR GRÁFICO DEL BINGO
+   ======================================================= */
+
+
+
+/* 1. ANIMACIÓN: ENTRADA DE LA BOLA GIGANTE */
+.animacion-entrada-bola {
+    animation: bolaRodando 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+
+
+@keyframes bolaRodando {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    50% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+
+
+/* 2. ANIMACIÓN: CAÍDA INICIAL AL TUBO (El resto del movimiento lo hace la transition del nth-child) */
+.animacion-caida-tubo {
+    animation: fadeInBola 0.5s ease-out;
+}
+
+
+
+@keyframes fadeInBola {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1.1); opacity: 1; }
+}
+
+
+
+/* 3. ANIMACIÓN: PISTA DORADA (LATIDO) */
+.animacion-latido-pista {
+    animation: latidoDorado 1.5s infinite;
+}
+
+
+
+@keyframes latidoDorado {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
+
+
+
+/* 4. ANIMACIÓN: ESTAMPADO DEL CARTÓN (CLIC MANUAL) */
+.animacion-estampado {
+    animation: golpeSello 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+
+
+@keyframes golpeSello {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+
+
+
+/* =======================================================
+   DISEÑO DE COMPONENTES: LA VITRINA Y EL HISTORIAL
+   ======================================================= */
+
+
+
+/* MÓVIL POR DEFECTO: TUBO VERTICAL RECTO (Espacio optimizado) */
+.tubo-cristal {
+    position: relative;
+    width: 65px;
+    height: 240px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.05) 100%);
+    border: 2px solid rgba(200,200,200,0.5);
+    border-radius: 40px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+    display: block; 
+}
+
+
+
+.bola-historial {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #ff7eb3, #ff758c); 
+    color: white;
+    font-weight: 900;
+    font-size: 1.3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3), 2px 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 10;
+}
+
+
+
+/* Posiciones Verticales Móvil (Máximo 4 bolas visibles) - Difuminado Equilibrado */
+.bola-historial:nth-child(1) { top: 10px; left: 5px; opacity: 1; border: 3px solid #fff; box-shadow: 0 0 15px #ff7eb3; transform: scale(1.05); z-index: 20;}
+.bola-historial:nth-child(2) { top: 65px; left: 5px; opacity: 0.85; z-index: 19;}
+.bola-historial:nth-child(3) { top: 120px; left: 5px; opacity: 0.65; z-index: 18;}
+.bola-historial:nth-child(4) { top: 175px; left: 5px; opacity: 0.40; z-index: 17;}
+.bola-historial:nth-child(n+5) { display: none; }
+
+
+
+/* ESCRITORIO: VITRINA EN FORMA DE "S" (Snake Compacto) */
+@media (min-width: 768px) {
+    .tubo-cristal {
+        width: 200px;
+        height: 190px; 
+        /* MAGIA: Línea punteada en S inyectada como fondo (No rompe el layout) */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 190'%3E%3Cpath d='M160,35 L40,35 A30,30 0 0,0 40,95 L160,95 A30,30 0 0,1 160,155 L40,155' fill='none' stroke='rgba(150,150,150,0.5)' stroke-width='4' stroke-dasharray='6,6' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+    
+    /* Trazado de la S con opacidad ajustada para Modo Claro/Oscuro */
+    /* Fila 1 (Derecha a Izquierda) */
+    .bola-historial:nth-child(1) { top: 10px; left: 135px; opacity: 1; border: 3px solid #fff; box-shadow: 0 0 15px #ff7eb3; transform: scale(1.1); z-index: 20;}
+    .bola-historial:nth-child(2) { top: 10px; left: 75px; opacity: 0.90; }
+    .bola-historial:nth-child(3) { top: 10px; left: 15px; opacity: 0.80; }
+    
+    /* Fila 2 (Izquierda a Derecha) */
+    .bola-historial:nth-child(4) { top: 70px; left: 15px; opacity: 0.70; display: flex; }
+    .bola-historial:nth-child(5) { top: 70px; left: 75px; opacity: 0.60; display: flex; }
+    .bola-historial:nth-child(6) { top: 70px; left: 135px; opacity: 0.50; display: flex; }
+    
+    /* Fila 3 (Derecha a Izquierda - Las más antiguas) */
+    .bola-historial:nth-child(7) { top: 130px; left: 135px; opacity: 0.40; display: flex; }
+    .bola-historial:nth-child(8) { top: 130px; left: 75px; opacity: 0.30; display: flex; }
+    .bola-historial:nth-child(9) { top: 130px; left: 15px; opacity: 0.20; display: flex; }
+}
+
+
+
+/* =======================================================
+   BOLA GIGANTE (RESPONSIVE Y ANTI-APLASTAMIENTO)
+   ======================================================= */
+.display-ultima-bola {
+    width: 120px; 
+    height: 120px; 
+    font-size: 3.5rem;
+    flex-shrink: 0 !important;
+    transition: all 0.3s ease;
+}
+
+
+
+@media (min-width: 768px) {
+    .display-ultima-bola {
+        width: 180px; 
+        height: 180px; 
+        font-size: 6rem;
+    }
+}
+
+
+
+/* =======================================================
+   DISEÑO DE JUGABILIDAD: CARTONES
+   ======================================================= */
+
+
+
+.cartones-carrusel .celda-pista {
+    background-color: rgba(255, 193, 7, 0.15) !important; 
+    border: 2px dashed #ffc107 !important; 
+    cursor: pointer;
+    box-shadow: inset 0 0 10px rgba(255, 193, 7, 0.1);
+    transition: all 0.2s ease;
+}
+
+
+
+.cartones-carrusel .celda-pista:hover {
+    background-color: rgba(255, 193, 7, 0.4) !important;
+    transform: scale(1.08);
+    z-index: 10;
+}
+
+
+
+/* EL FRANCOTIRADOR: Solo disparamos el amarillo si la clase incluye "celda-numero-" */
+.cartones-carrusel [class*="celda-numero-"].celda-marcada,
+.cartones-carrusel [class*="celda-numero-"].bg-success {
+    background-color: #ffc107 !important; 
+    border: 2px solid #e0a800 !important;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.2) !important;
+    color: #212529 !important; 
+}
+
+
+
+/* =======================================================
+   RESPONSIVE: CARRUSEL HORIZONTAL PARA MÓVILES
+   ======================================================= */
+@media (max-width: 768px) {
+    .cartones-carrusel {
+        display: flex;
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        
+        /* LA SOLUCIÓN AL BUG: Alineamos al inicio para que no corte los elementos izquierdos */
+        justify-content: flex-start !important; 
+        
+        padding-bottom: 20px;
+        margin-left: 0;
+        margin-right: 0;
+        -ms-overflow-style: none;
+        scrollbar-width: none; /* stylelint-disable-line property-no-unknown */
+    }
+    .cartones-carrusel::-webkit-scrollbar { 
+        display: none; 
+    }
+    .cartones-carrusel > div {
+        scroll-snap-align: center;
+        min-width: 85vw !important; /* Mantiene el tamaño exacto del cartón */
+        max-width: 85vw !important;
+        flex: 0 0 auto !important; /* Evita que el contenedor los "aplaste" */
+    }
+    
+    /* Pequeño espacio fantasma al final para que el último cartón pueda centrarse cómodamente en la pantalla */
+    .cartones-carrusel::after {
+        content: "";
+        flex: 0 0 7.5vw;
+    }
+}
+

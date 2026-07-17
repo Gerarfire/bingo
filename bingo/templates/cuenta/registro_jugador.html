@@ -1,0 +1,65 @@
+{% extends 'comunes/base.html' %}
+{% block title %}Perfil de Juego - CoopBingo{% endblock %}
+
+
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card-minimalista p-4 p-md-5">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold mb-1">Perfil de Juego</h4>
+                {% if user.is_authenticated %}
+                    <span class="badge bg-success-subtle text-success border mb-2"><i class="fas fa-check-circle me-1"></i> Identidad Verificada</span>
+                    <p class="text-secondary small">Solo necesitamos un Alias público para las pantallas de la sala.</p>
+                {% else %}
+                    <p class="text-secondary small">Llena los datos para jugar como invitado.</p>
+                {% endif %}
+            </div>
+
+
+
+            <form method="post" action="{% url 'registro_jugador' %}">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold text-primary">Alias de Jugador (Público)</label>
+                        <input type="text" name="aliasjugador" class="form-control bg-transparent border-primary" placeholder="Ej: ReyDelBingo" required>
+                    </div>
+
+
+
+                    {% if not user.is_authenticated %}
+                        <div class="col-md-6">
+                            <label for="nombresjugador" class="form-label small fw-semibold">Nombres</label>
+                            <input id="nombresjugador" type="text" name="nombresjugador" class="form-control bg-transparent" placeholder="Ej: Juan Carlos" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="apellidosjugador" class="form-label small fw-semibold">Apellidos</label>
+                            <input id="apellidosjugador" type="text" name="apellidosjugador" class="form-control bg-transparent" placeholder="Ej: Pérez Gómez" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Cédula</label>
+                            <input type="text" name="cedula" class="form-control bg-transparent" maxlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);" title="Debe contener exactamente 10 números" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="correojugador" class="form-label small fw-semibold">Correo</label>
+                            <input id="correojugador" type="email" name="correojugador" class="form-control bg-transparent" placeholder="Ej: correo@ejemplo.com" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="passwordJugador" class="form-label small fw-semibold">Contraseña</label>
+                            <div class="input-group">
+                                <input id="passwordJugador" type="password" name="password" class="form-control bg-transparent toggle-password-field" placeholder="Mínimo 8 caracteres" required>
+                                <button class="btn btn-outline-secondary toggle-password-btn" type="button" title="Mostrar contraseña" aria-label="Mostrar contraseña">
+                                    <i class="fas fa-eye" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn btn-indigo w-100 mt-4 py-2"><i class="fas fa-gamepad me-2"></i> {% if user.is_authenticated %}Activar Mi Modo Jugador{% else %}Crear Perfil Externo{% endif %}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

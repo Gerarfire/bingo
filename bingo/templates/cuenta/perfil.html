@@ -1,0 +1,420 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Mi Perfil - CoopBingo{% endblock %}
+
+
+
+{% block content %}
+<div class="container py-5">
+    
+    
+
+
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-4">
+            <div class="card-minimalista text-center p-4 shadow-sm position-relative overflow-hidden">
+                <div class="bg-primary position-absolute top-0 start-0 w-100" style="height: 80px; z-index: 0;"></div>
+                
+                <div class="position-relative mt-4 mb-3" style="z-index: 1;">
+                    {% if request.session.avatar_url %}
+                        <img src="{{ request.session.avatar_url }}" alt="Avatar" class="rounded-circle object-fit-cover border border-4 border-white shadow" style="width: 120px; height: 120px;">
+                    {% else %}
+                        <img src="{% static 'img/default_avatar.png' %}" alt="Avatar" class="rounded-circle object-fit-cover border border-4 border-white shadow" style="width: 120px; height: 120px;">
+                    {% endif %}
+                </div>
+                
+                <h4 class="fw-bold mb-1">{{ request.session.user_nombre|default:user.first_name }}</h4>
+                <p class="text-muted small mb-3">{{ user.email }}</p>
+                
+                <div class="d-flex justify-content-center gap-2 mb-4">
+                    {% if socio %}
+                        <span class="badge bg-success-subtle text-success border"><i class="fas fa-handshake me-1"></i> Socio Activo</span>
+                    {% endif %}
+                    {% if jugador %}
+                        <span class="badge bg-success-subtle text-success border"><i class="fas fa-gamepad me-1"></i> Jugador</span>
+                    {% endif %}
+                </div>
+
+
+
+                {% if jugador %}
+                <div class="d-flex flex-column gap-2 mb-3">
+                    <div class="bg-warning bg-opacity-10 rounded p-3 text-start border border-warning d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="small text-warning-emphasis fw-bold d-block">Efectivo Disponible</span>
+                            <h4 class="fw-bold text-warning mb-0">${{ jugador.saldocreditojugador }}</h4>
+                        </div>
+                        <i class="fas fa-money-bill-wave text-success opacity-50 fs-2"></i>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 rounded p-3 text-start border border-warning d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="small text-warning-emphasis fw-bold d-block">Saldo Virtual</span>
+                            <h4 class="fw-bold text-warning mb-0">{{ jugador.saldovirtualjugador }}</h4>
+                        </div>
+                        <i class="fas fa-coins text-warning opacity-50 fs-2"></i>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <form method="post" action="{% url 'perfil' %}" enctype="multipart/form-data" class="mt-4 border-top pt-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="actualizar_avatar">
+                    <label for="avatarInput" class="form-label small fw-bold text-secondary text-start w-100">Actualizar Fotografía</label>
+                    <div class="input-group">
+                        <input id="avatarInput" type="file" name="avatar" class="form-control form-control-sm" accept="image/*" required>
+                        <button class="btn btn-primary btn-sm" type="submit" title="Subir fotografía" aria-label="Subir fotografía">
+                            <i class="fas fa-upload" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+
+        <div class="col-12 col-lg-8">
+            
+            {% if jugador and not socio %}
+            <div class="card bg-warning bg-opacity-10 border border-warning rounded-4 mb-4 shadow-sm">
+                <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div>
+                        <h5 class="fw-bold text-body mb-1"><i class="fas fa-crown text-warning me-2"></i> Desbloquea todo el potencial de CoopBingo</h5>
+                        <p class="text-secondary small mb-0">Conviértete en Socio para acceder a créditos y ahorros. ¡Tus datos básicos se sincronizarán automáticamente!</p>
+                    </div>
+                    <button class="btn btn-warning fw-bold text-dark px-4 flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalAscensoSocio">
+                        Ascender a Socio
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+
+
+            <div class="card-minimalista p-4 shadow-sm h-100">
+                <div class="nav nav-tabs mb-4" id="perfilTabs" role="tablist" aria-label="Secciones del perfil">
+                    <div class="nav-item">
+                        <button class="nav-link active fw-medium" data-bs-toggle="tab" data-bs-target="#datos" type="button" role="tab" id="datos-tab" aria-selected="true" aria-controls="datos">
+                            <i class="fas fa-user-edit me-2" aria-hidden="true"></i> Mis Datos
+                        </button>
+                    </div>
+                    <div class="nav-item">
+                        <button class="nav-link fw-medium" data-bs-toggle="tab" data-bs-target="#seguridad" type="button" role="tab" id="seguridad-tab" aria-selected="false" aria-controls="seguridad">
+                            <i class="fas fa-lock me-2" aria-hidden="true"></i> Seguridad
+                        </button>
+                    </div>
+                    <div class="nav-item">
+                        <button class="nav-link fw-medium" data-bs-toggle="tab" data-bs-target="#historial" type="button" role="tab" id="historial-tab" aria-selected="false" aria-controls="historial">
+                            <i class="fas fa-file-invoice-dollar me-2" aria-hidden="true"></i> Estado de Cuenta
+                        </button>
+                    </div>
+                </div>
+
+
+
+                <div class="tab-content" id="perfilTabsContent">
+                    
+                    <div class="tab-pane fade show active" id="datos">
+                        <form method="post" action="{% url 'perfil' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="actualizar_datos">
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="nombresDocumento" class="form-label small fw-bold">Nombres (Documento)</label>
+                                    <input id="nombresDocumento" type="text" class="form-control animate__animated animate__fadeInDown" value="{{ user.first_name }}" readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="apellidosDocumento" class="form-label small fw-bold">Apellidos (Documento)</label>
+                                    <input id="apellidosDocumento" type="text" class="form-control animate__animated animate__fadeInDown" value="{{ user.last_name }}" readonly>
+                                </div>
+                                <div class="col-12">
+                                    <label for="identificacionPerfil" class="form-label small fw-bold">Identificación / Cédula</label>
+                                    <input id="identificacionPerfil" type="text" class="form-control animate__animated animate__fadeInDown font-monospace text-muted" value="{{ user.username }}" readonly>
+                                    <div class="form-text small">Por seguridad, la cédula y nombres legales no pueden modificarse desde aquí. Contacte a soporte si existe un error.</div>
+                                </div>
+
+
+
+                                <div class="col-12"><hr></div>
+
+
+
+                                {% if jugador %}
+                                <div class="col-md-6">
+                                    <label for="aliasPerfil" class="form-label small fw-bold text-primary">Alias de Juego Público</label>
+                                    <input id="aliasPerfil" type="text" name="alias" class="form-control border-primary border-opacity-50" value="{{ jugador.aliasjugador }}">
+                                </div>
+                                {% endif %}
+                                <div class="col-md-6">
+                                    <label for="correoPerfil" class="form-label small fw-bold">Correo Electrónico</label>
+                                    <input id="correoPerfil" type="email" name="correo" class="form-control" value="{{ user.email }}">
+                                </div>
+                                {% if socio %}
+                                <div class="col-md-6">
+                                    <label for="telefonoPerfil" class="form-label small fw-bold">Teléfono de Contacto</label>
+                                    <input id="telefonoPerfil" type="text" name="telefono" class="form-control" value="{{ socio.telefonopersonalsocio }}">
+                                </div>
+                                {% endif %}
+                                
+                                <div class="col-12 text-end mt-4">
+                                    <button type="submit" class="btn btn-indigo px-4"><i class="fas fa-save me-2"></i> Guardar Cambios</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+
+
+                    <div class="tab-pane fade" id="seguridad">
+                        <div class="bg-warning-subtle p-3 rounded border border-warning mb-4">
+                            <h6 class="fw-bold animate__animated animate__fadeInDown mb-1"><i class="fas fa-exclamation-triangle me-2"></i> Confirmación de Identidad</h6>
+                            <p class="small animate__animated animate__fadeInDown mb-0">Para proteger tu cuenta, debes ingresar tu contraseña actual antes de poder establecer una nueva.</p>
+                        </div>
+                        
+                        <form method="post" action="{% url 'perfil' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="actualizar_password">
+                            
+                            <div class="row g-3">
+                                <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="passwordActual" class="form-label small fw-bold">Contraseña Actual</label>
+                                    <div class="input-group">
+                                        <input id="passwordActual" type="password" name="password_actual" class="form-control toggle-password-field" required>
+                                        <button class="btn btn-outline-secondary toggle-password-btn" type="button" title="Mostrar contraseña" aria-label="Mostrar contraseña">
+                                            <i class="fas fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="passwordNueva" class="form-label small fw-bold">Nueva Contraseña</label>
+                                    <div class="input-group">
+                                        <input id="passwordNueva" type="password" name="password_nueva" class="form-control toggle-password-field" required>
+                                        <button class="btn btn-outline-secondary toggle-password-btn" type="button" title="Mostrar contraseña" aria-label="Mostrar contraseña">
+                                            <i class="fas fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="passwordConfirmar" class="form-label small fw-bold">Confirmar Nueva Contraseña</label>
+                                    <div class="input-group">
+                                        <input id="passwordConfirmar" type="password" name="password_confirmar" class="form-control toggle-password-field" required>
+                                        <button class="btn btn-outline-secondary toggle-password-btn" type="button" title="Mostrar contraseña" aria-label="Mostrar contraseña">
+                                            <i class="fas fa-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-12 text-end mt-4">
+                                    <button type="submit" class="btn btn-dark px-4"><i class="fas fa-key me-2"></i> Actualizar Contraseña</button>
+                                </div>
+                            </div>
+                            </div>
+                        </form>
+                    </div>
+
+
+
+                    <div class="tab-pane fade" id="historial">
+                        <div class="accordion" id="accordionHistorial">
+                            
+                            {% if jugador %}
+                            <div class="accordion-item border-0 shadow-sm mb-2 rounded overflow-hidden">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button animate__animated animate__fadeInDown" type="button" data-bs-toggle="collapse" data-bs-target="#colCartones">
+                                        <i class="fas fa-ticket-alt text-primary me-2"></i> Mis Cartones Adquiridos
+                                    </button>
+                                </h2>
+                                <div id="colCartones" class="accordion-collapse collapse show" data-bs-parent="#accordionHistorial">
+                                    <div class="accordion-body p-0">
+                                        <div class="table-responsive" style="max-height: 250px; overflow-y:auto;">
+                                            <table class="table table-hover align-middle mb-0 small">
+                                                <thead class="animate__animated animate__fadeInDown">
+                                                    <tr>
+                                                        <th>Ronda (Partida)</th>
+                                                        <th>Serial del Cartón</th>
+                                                        <th>Inversión</th>
+                                                        <th>Fecha</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for c in historial_compras %}
+                                                    <tr>
+                                                        <td class="fw-semibold">{{ c.idpartida.nombreronda }}</td>
+                                                        <td class="font-monospace text-indigo fw-bold">{{ c.idcarton.codigocarton }}</td>
+                                                        <td class="text-danger fw-bold">-${{ c.preciopagado }}</td>
+                                                        <td class="text-muted" style="font-size: 0.75rem;">{{ c.fechacompra|date:"d/m/y H:i" }}</td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr><td colspan="4" class="text-center text-muted py-3">Aún no has comprado ningún cartón.</td></tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+
+
+                            {% if socio %}
+                            <div class="accordion-item border-0 shadow-sm mb-2 rounded overflow-hidden">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed animate__animated animate__fadeInDown" type="button" data-bs-toggle="collapse" data-bs-target="#colAhorros">
+                                        <i class="fas fa-piggy-bank text-success me-2"></i> Historial de Ahorros
+                                    </button>
+                                </h2>
+                                <div id="colAhorros" class="accordion-collapse collapse" data-bs-parent="#accordionHistorial">
+                                    <div class="accordion-body p-0">
+                                        <div class="table-responsive" style="max-height: 200px; overflow-y:auto;">
+                                            <table class="table table-hover align-middle mb-0 small">
+                                                <thead class="animate__animated animate__fadeInDown">
+                                                    <tr>
+                                                        <th>Tipo</th>
+                                                        <th>Monto Aportado</th>
+                                                        <th>Fecha</th>
+                                                        <th>Estado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for a in historial_ahorros %}
+                                                    <tr>
+                                                        <td>{{ a.tipoahorro }}</td>
+                                                        <td class="text-success fw-bold">+${{ a.montoahorro }}</td>
+                                                        <td class="text-muted">{{ a.fechaahorro|date:"d/m/y" }}</td>
+                                                        <td><span class="badge bg-body-secondary text-body border">{{ a.estadoahorro }}</span></td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr><td colspan="4" class="text-center text-muted py-3">Sin registros de ahorros recientes.</td></tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+
+
+                            <div class="accordion-item border-0 shadow-sm rounded overflow-hidden">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed animate__animated animate__fadeInDown" type="button" data-bs-toggle="collapse" data-bs-target="#colPrestamos">
+                                        <i class="fas fa-hand-holding-usd text-danger me-2"></i> Mis Préstamos
+                                    </button>
+                                </h2>
+                                <div id="colPrestamos" class="accordion-collapse collapse" data-bs-parent="#accordionHistorial">
+                                    <div class="accordion-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle mb-0 small">
+                                                <thead class="animate__animated animate__fadeInDown">
+                                                    <tr>
+                                                        <th>ID</th>
+                                                        <th>Monto Base</th>
+                                                        <th>Saldo Restante</th>
+                                                        <th>Estado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for p in historial_prestamos %}
+                                                    <tr>
+                                                        <td class="font-monospace text-muted">#{{ p.idprestamo }}</td>
+                                                        <td class="fw-semibold">${{ p.montoprestamosolicitado }}</td>
+                                                        <td class="text-danger fw-bold">${{ p.saldopendiente }}</td>
+                                                        <td><span class="badge bg-body-secondary text-body border">{{ p.estadoprestamo }}</span></td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr><td colspan="4" class="text-center text-muted py-3">No tienes préstamos activos en tu cuenta.</td></tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                        </div>
+                    </div>
+                </div>
+
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- ========================================== -->
+<!-- MODAL: FORMULARIO PARA SER SOCIO ACTUALIZADO -->
+<!-- ========================================== -->
+{% if jugador and not socio %}
+<div class="modal fade" id="modalAscensoSocio" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> <!-- Más ancho para los datos -->
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Completa tu Registro Legal de Socio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'perfil' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="ascender_socio">
+                <div class="modal-body">
+                    <div class="alert alert-warning small py-2 mb-3 border-0 bg-warning-subtle text-warning-emphasis">
+                        <i class="fas fa-exclamation-triangle me-1"></i> Por razones legales y financieras, debes confirmar tus nombres exactos y número de documento oficial.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Primer Nombre</label>
+                            <input type="text" name="primer_nombre" class="form-control bg-transparent" value="{{ user.first_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Segundo Nombre (Opcional)</label>
+                            <input type="text" name="segundo_nombre" class="form-control bg-transparent">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Primer Apellido</label>
+                            <input type="text" name="primer_apellido" class="form-control bg-transparent" value="{{ user.last_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Segundo Apellido</label>
+                            <input type="text" name="segundo_apellido" class="form-control bg-transparent" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Cédula de Identidad</label>
+                            <!-- Pre-llenamos con lo que había, pero dejamos que lo corrija si quiere -->
+                            <input type="text" name="cedula" class="form-control bg-transparent text-primary fw-bold" value="{{ jugador.cedulaidentidadjugador|default:user.username }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Fecha de Nacimiento</label>
+                            <input type="date" name="fecha_nacimiento" class="form-control bg-transparent" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Sexo</label>
+                            <select name="sexo" class="form-select bg-transparent" required>
+                                <option value="H">Hombre</option>
+                                <option value="M">Mujer</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Teléfono Personal</label>
+                            <input type="text" name="telefono" class="form-control bg-transparent" placeholder="Ej: 0987654321" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Dirección de Domicilio</label>
+                            <input type="text" name="direccion" class="form-control bg-transparent" placeholder="Ej: Av. Principal y Calle Secundaria" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning fw-bold text-dark">Confirmar Registro Legal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

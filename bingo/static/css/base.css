@@ -1,0 +1,135 @@
+/* =========================================
+   BASE CSS - COOPBINGO (SaaS Minimalista)
+   ========================================= */
+
+
+
+/* 1. PALETA DE COLORES Y VARIABLES GLOBALES */
+:root {
+    /* Modo Claro (Por defecto) */
+    --bg-principal: #f8fafc;      /* Gris súper claro, casi blanco */
+    --bg-tarjetas: #ffffff;       /* Blanco puro para los contenedores */
+    --texto-principal: #1e293b;   /* Slate 800 (Gris muy oscuro para leer cómodo) */
+    --texto-secundario: #64748b;  /* Slate 500 para textos menores */
+    
+    /* Color de Marca (Índigo SaaS) */
+    --color-primario: #4f46e5; 
+    --color-primario-hover: #4338ca;
+    
+    /* Bordes y Sombras */
+    --borde-suave: 1px solid #e2e8f0;
+    --sombra-minimalista: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+
+
+/* Variables para Modo Oscuro (Gris Carbón Minimalista) */
+[data-bs-theme="dark"] {
+    --bg-principal: #121212;      /* Negro mate profundo para el fondo base */
+    --bg-tarjetas: #1e1e1e;       /* Gris carbón sutil para las tarjetas y el sidebar */
+    --texto-principal: #e4e4e7;   /* Gris tiza, brillante pero sin deslumbrar */
+    --texto-secundario: #a1a1aa;  /* Gris plomo para textos de apoyo */
+    
+    /* Bordes casi invisibles para separar elementos sutilmente */
+    --borde-suave: 1px solid #27272a;
+    /* Sombras más densas para dar profundidad en la oscuridad */
+    --sombra-minimalista: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+
+
+/* =========================================
+   2. REGLAS GENERALES Y TIPOGRAFÍA
+   ========================================= */
+body {
+    background-color: var(--bg-principal);
+    color: var(--texto-principal);
+    font-family: 'Inter', sans-serif;
+    /* Esto hace que al presionar "Modo Oscuro" el color no cambie de golpe, sino que se difumine suavemente */
+    transition: background-color 0.3s ease, color 0.3s ease; 
+    -webkit-font-smoothing: antialiased; /* Suaviza los bordes de la fuente */
+}
+
+
+
+/* =========================================
+   3. COMPONENTES REUTILIZABLES (SaaS)
+   ========================================= */
+/* Úsala en los div de tus formularios, dashboards y donde vayas a poner el cartón */
+.card-minimalista {
+    background-color: var(--bg-tarjetas);
+    border: var(--borde-suave);
+    border-radius: 12px;
+    box-shadow: var(--sombra-minimalista);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+}
+
+
+
+/* Pequeño efecto de elevación cuando el usuario pasa el mouse por la tarjeta */
+.card-minimalista:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px); 
+}
+
+
+
+/* Botón principal del sistema (Sustituye al btn-primary básico de Bootstrap) */
+.btn-indigo {
+    background-color: var(--color-primario);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 20px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+
+
+.btn-indigo:hover {
+    background-color: var(--color-primario-hover);
+    color: white;
+}
+
+
+
+.btn-indigo:active {
+    transform: scale(0.98); /* Efecto de clic real */
+}
+
+
+
+/* =========================================
+   4. SISTEMA DE ALERTAS (Posicionamiento)
+   ========================================= */
+/* Fija los mensajes flotantes en la esquina superior derecha */
+.message-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    min-width: 300px;
+    pointer-events: none; /* Para que el div invisible no bloquee clics */
+}
+
+
+
+.message-container .alert {
+    pointer-events: auto; /* Reactiva los clics solo para cerrar la alerta */
+}
+
+
+
+.nav-link {
+    transition: color 0.3s ease;
+}
+.nav-link:hover {
+    color: var(--color-primario) !important;
+}
+.btn-indigo {
+    transition: transform 0.2s ease, background-color 0.3s ease;
+}
+.btn-indigo:hover {
+    transform: translateY(-1px);
+}

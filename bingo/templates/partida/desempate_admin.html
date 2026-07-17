@@ -1,0 +1,241 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Resolución de Reclamo - Admin{% endblock %}
+
+
+
+{% block content %}
+<div class="container mt-5 mb-5 px-lg-5">
+    
+    
+
+
+
+    <div class="row justify-content-center g-4">
+        
+        <div class="col-lg-8">
+            <div class="card shadow-lg border-0 rounded-4 h-100 bg-body">
+                <div class="card-header bg-danger text-white text-center py-4 rounded-top-4 border-0">
+                    <h2 class="mb-0 fw-bold"><i class="fas fa-gavel me-2"></i> Árbitro: Resolución de Bingo</h2>
+                </div>
+                
+                <div class="card-body p-4 p-md-5 bg-body-tertiary rounded-bottom-4">
+                    <div class="text-center mb-5">
+                        <span class="badge bg-danger px-3 py-2 fs-6 mb-3 animate__animated animate__pulse animate__infinite shadow-sm">
+                            <i class="fas fa-pause-circle me-1"></i> JUEGO PAUSADO
+                        </span>
+                        <h4 class="text-body fw-bold">Se ha detenido la extracción de bolas para verificar cartones en la <strong>{{ partida.nombreronda }}</strong>.</h4>
+                        <p class="text-body-secondary fs-5 mt-3">Por favor, confirme con los jugadores en la sala virtual (Zoom/Meet) y en la plataforma web.</p>
+                    </div>
+
+
+
+                    <form method="POST" action="{% url 'desempate_admin' id_partida=partida.idpartidabingo %}">
+                        {% csrf_token %}
+                        
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="card border-warning border-3 h-100 shadow-sm hover-elevate bg-body">
+                                    <div class="card-body text-center p-4 d-flex flex-column">
+                                        <div class="mb-3">
+                                            <i class="fas fa-users text-warning fa-4x animate__animated animate__pulse animate__infinite"></i>
+                                        </div>
+                                        <h4 class="text-warning fw-black mb-3">SÍ, HUBO EMPATE</h4>
+                                        <p class="text-body-secondary small mb-4 flex-grow-1 px-2">
+                                            Múltiples jugadores gritaron BINGO (ya sea en la plataforma web o por micrófono). Se requiere un sorteo de desempate.
+                                        </p>
+                                        <button type="submit" name="decision_desempate" value="si" class="btn btn-warning btn-lg w-100 fw-bold shadow-sm text-dark hover-elevate-btn">
+                                            IR A CONSOLA <i class="fas fa-arrow-right ms-2"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+
+
+                            <div class="col-md-6">
+                                <div class="card border-success border-3 h-100 shadow-sm hover-elevate bg-body">
+                                    <div class="card-body text-center p-4 d-flex flex-column">
+                                        <div class="mb-3">
+                                            <i class="fas fa-trophy text-success fa-4x animate__animated animate__tada"></i>
+                                        </div>
+                                        <h4 class="text-success fw-black mb-3">NO, GANADOR ÚNICO</h4>
+                                        <p class="text-body-secondary small mb-3 px-2">
+                                            Solo un jugador reclamó BINGO válidamente. Ingrese el código de su cartón para liquidar la ronda al instante.
+                                        </p>
+                                        
+                                        <div class="mb-4 text-start bg-body-tertiary p-3 rounded border border-secondary-subtle">
+                                            <label class="form-label fw-bold text-body small text-uppercase mb-2"><i class="fas fa-barcode text-success me-1"></i> Código del Cartón:</label>
+                                            <input type="text" id="input_codigo_ganador" name="codigo_ganador_unico" class="form-control form-control-lg text-center text-uppercase fw-bold border-success shadow-sm bg-body text-body" placeholder="Ej: MYT-XXXXX">
+                                        </div>
+
+
+
+                                        <button type="submit" name="decision_desempate" value="no" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mt-auto hover-elevate-btn" onclick="return confirm('¿Está seguro de liquidar la ronda a favor de este cartón? Esta acción transferirá los fondos de inmediato.')">
+                                            <i class="fas fa-check-circle me-2"></i> VALIDAR Y FINALIZAR
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 rounded-4 h-100 bg-body">
+                <div class="card-header bg-success text-white text-center py-3 rounded-top-4 border-0">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-satellite-dish me-2"></i>Radar Web</h5>
+                    <small style="font-size: 0.75rem;">Detectados por el sistema</small>
+                </div>
+                <div class="card-body p-0 bg-body-tertiary rounded-bottom-4" style="max-height: 550px; overflow-y: auto; overflow-x: hidden;">
+                    <div class="list-group list-group-flush h-100" role="list">
+                        {% for ganador in ganadores_web %}
+                        <div class="list-group-item p-4 border-bottom border-secondary-subtle bg-transparent hover-bg animate__animated animate__fadeInRight" role="listitem">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="fw-bold text-body fs-5"><i class="fas fa-user-circle text-primary me-2" aria-hidden="true"></i> {{ ganador.idjugador.aliasjugador }}</span>
+                            </div>
+                            <div class="text-center mb-3">
+                                <span class="badge text-bg-dark fs-6 px-3 py-2 shadow-sm font-monospace border border-secondary">{{ ganador.idcarton.codigocarton }}</span>
+                            </div>
+                            <button type="button" class="btn btn-outline-success w-100 fw-bold rounded-pill shadow-sm hover-elevate-btn" onclick="pegarCodigo('{{ ganador.idcarton.codigocarton }}')">
+                                <i class="fas fa-copy me-1" aria-hidden="true"></i> USAR ESTE CÓDIGO
+                            </button>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center py-5 text-muted bg-transparent border-0 d-flex flex-column justify-content-center h-100" role="listitem">
+                            <i class="fas fa-search fa-3x mb-4 opacity-25" aria-hidden="true"></i>
+                            <span class="fw-medium fs-5">Aún no se detectan ganadores<br>en la plataforma web.</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+
+
+<style>
+    .hover-elevate { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .hover-elevate:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+    .hover-bg { transition: background-color 0.2s ease; }
+    .hover-bg:hover { background-color: rgba(25, 135, 84, 0.1) !important; }
+    .hover-elevate-btn { transition: transform 0.1s ease; }
+    .hover-elevate-btn:active { transform: scale(0.95); }
+</style>
+
+
+
+<script>
+    function pegarCodigo(codigo) {
+        const inputCodigo = document.getElementById('input_codigo_ganador');
+        if(inputCodigo) {
+            inputCodigo.value = codigo;
+            inputCodigo.classList.add('bg-success', 'text-white', 'animate__animated', 'animate__headShake');
+            inputCodigo.classList.remove('bg-body', 'text-body');
+            
+            setTimeout(() => {
+                inputCodigo.classList.remove('bg-success', 'text-white', 'animate__animated', 'animate__headShake');
+                inputCodigo.classList.add('bg-body', 'text-body');
+            }, 800);
+        }
+    }
+    function finalizarRondaConGanador() {
+    const codigoGanador = document.getElementById('input_codigo_ganador').value.trim();
+    if (!codigoGanador) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Código Requerido',
+            text: 'Por favor, ingrese o pegue el código del cartón ganador antes de continuar.',
+            confirmButtonColor: '#dc3545'
+        });
+        return;
+    }
+
+
+
+    Swal.fire({
+        title: '¿Confirmar Validación?',
+        text: "Esta acción registrará oficialmente al ganador, cerrará la ronda actual en la base de datos y notificará a todos los jugadores en tiempo real.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="fas fa-check me-1"></i> Sí, Validar y Finalizar',
+        cancelButtonText: 'Cancelar',
+        focusCancel: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Animación de carga en el botón
+            const btnSubmit = document.getElementById('btn-submit-resolucion');
+            const originalHTML = btnSubmit.innerHTML;
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
+
+
+
+            const formData = new FormData();
+            formData.append('codigo_ganador', codigoGanador);
+
+
+
+            // =======================================================
+            // SOLUCIÓN: EXTRAEMOS EL TOKEN CSRF DEL HTML
+            // =======================================================
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+
+
+            fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken // <-- LA LLAVE MÁGICA PARA ADIÓS AL 403
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Ronda Finalizada!',
+                        text: data.message || 'El ganador ha sido validado correctamente.',
+                        confirmButtonColor: '#198754'
+                    }).then(() => {
+                        window.location.href = "{% url 'dashboard' %}"; // Redirección limpia
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de Validación',
+                        text: data.message || 'No se pudo procesar la solicitud.',
+                        confirmButtonColor: '#dc3545'
+                    });
+                    // Restauramos el botón si hubo un error de negocio
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = originalHTML;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error del Servidor',
+                    text: 'Ocurrió un fallo en la comunicación con el servidor. Inténtalo de nuevo.',
+                    confirmButtonColor: '#dc3545'
+                });
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = originalHTML;
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

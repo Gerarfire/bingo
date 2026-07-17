@@ -1,0 +1,367 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Tablero en Vivo - Admin{% endblock %}
+
+
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/animaciones.css' %}">
+{% endblock %}
+
+
+
+{% block content %}
+<style>
+    /* Estilos para el Tablero Maestro */
+    .master-board { display: flex; gap: 10px; justify-content: center; overflow-x: auto; padding-bottom: 10px;}
+    .master-col { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 60px;}
+    .master-header { width: 100%; text-align: center; font-size: 1.8rem; font-weight: 900; color: white; padding: 10px 0; border-radius: 8px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);}
+    
+    .ball { 
+        width: 45px; height: 45px; 
+        border-radius: 50%; 
+        display: flex; justify-content: center; align-items: center; 
+        font-weight: bold; font-size: 1.1rem;
+        box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3), 2px 2px 5px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    /* Estado: No ha salido */
+    .ball-pending { background-color: var(--bs-secondary-bg); color: var(--bs-secondary-color); border: 1px solid var(--bs-border-color); box-shadow: inset 1px 1px 3px rgba(0,0,0,0.1); }
+    
+    /* Estado: Ya salió (DISEÑO ROSADO UNIFICADO) */
+    .ball-called { 
+        background: radial-gradient(circle at 30% 30%, #ff7eb3, #ff758c) !important; 
+        color: white !important; 
+        border: none !important;
+    }
+    
+    /* Bola recién salida (RESALTE EXTREMO) */
+    .ball-latest { 
+        transform: scale(1.3) !important; 
+        border: 4px solid #ffc107 !important; 
+        background: radial-gradient(circle at 30% 30%, #ff7eb3, #ff758c) !important;
+        color: white !important;
+        z-index: 20 !important; 
+        animation: latidoAdmin 1s infinite !important; 
+    }
+
+
+
+    @keyframes latidoAdmin {
+        0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.8); }
+        70% { box-shadow: 0 0 0 15px rgba(255, 193, 7, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+    }
+</style>
+
+
+
+{% if partida.estadopartida == 'Programada' %}
+<div class="container mt-5">
+    <div class="card shadow-lg border-0 rounded-4 mb-4" style="background: linear-gradient(135deg, #1E1B4B 0%, #4F46E5 100%);">
+        <div class="card-body text-white text-center p-5">
+            <div class="mb-4">
+                <i class="fas fa-flag-checkered fa-4x text-warning"></i>
+            </div>
+            <h1 class="fw-bold mb-3">La ronda está lista</h1>
+            <p class="fs-5 text-white-50 mb-5">
+                Los jugadores están aguardando en la sala de espera.<br>
+                Presiona el botón para abrir las mesas y comenzar el sorteo.
+            </p>
+            
+            <form method="post" action="{% url 'tablero_admin' partida.idpartidabingo %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="iniciar_partida">
+                <button type="submit" class="btn btn-warning btn-lg fw-bold px-5 py-3 shadow-lg rounded-pill text-dark" style="font-size: 1.2rem;">
+                    <i class="fas fa-play me-2"></i> INICIAR RONDA "{{ partida.nombreronda|upper }}"
+                </button>
+            </form>
+
+
+
+            <div class="mt-5 pt-4 border-top border-light border-opacity-25 animate__animated animate__fadeInUp">
+                <h5 class="text-info fw-bold mb-3"><i class="fas fa-bullhorn me-2"></i>Megáfono: Anuncio a la Sala de Espera</h5>
+                <div class="input-group input-group-lg w-75 mx-auto shadow-lg" style="max-width: 600px;">
+                    <input type="text" id="admin-mensaje-input" class="form-control border-0" placeholder="Ej: ¡Atención! Empezamos en 2 minutos..." autocomplete="off">
+                    <button class="btn btn-info text-white fw-bold px-4" type="button" onclick="enviarMensajeAdmin(event)">
+                        <i class="fas fa-paper-plane me-2"></i> ENVIAR AULA
+                    </button>
+                </div>
+                <small class="text-white-50 mt-2 d-block">Este mensaje aparecerá como una alerta en las pantallas de todos los jugadores conectados.</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+
+{% if partida.estadopartida == 'En Juego' %}
+<div class="container-fluid py-4">
+    <div class="row g-4">
+        
+        <div class="col-lg-3">
+            <div class="card-minimalista p-3 p-md-4 shadow-sm h-100 border-top border-indigo border-4">
+                <h5 class="fw-bold mb-3 text-center"><i class="fas fa-cogs text-indigo me-2"></i>Control</h5>
+                <div class="bg-body-tertiary p-2 rounded mb-3 text-center border">
+                    <span class="d-block text-secondary small fw-bold text-uppercase">Ronda Actual</span>
+                    <h5 class="fw-bold text-body mb-0 text-truncate">{{ partida.nombreronda }}</h5>
+                </div>
+                
+                <div class="form-check form-switch bg-warning bg-opacity-10 border border-warning rounded p-3 mb-3 d-flex justify-content-between align-items-center shadow-sm">
+                    <label class="form-check-label fw-bold text-body m-0" for="switchAutoDraw" style="cursor: pointer;">
+                        <i class="fas fa-robot text-warning me-2"></i> Piloto Automático (5s)
+                    </label>
+                    <input class="form-check-input fs-4 m-0" type="checkbox" role="switch" id="switchAutoDraw" onchange="toggleAutoDraw(this)" style="cursor: pointer;">
+                </div>
+
+
+
+                <button id="btn-sacar-bola" class="btn btn-indigo w-100 fw-bold py-3 mb-3 shadow" onclick="sacarSiguienteBola()">
+                    <i class="fas fa-random me-2"></i> SACAR BOLA MANUAL
+                </button>
+
+
+
+                <div class="text-center mb-3">
+                    <span class="d-block text-muted small fw-bold mb-2">Última Bola:</span>
+                    <div id="bola-gigante-pantalla" class="d-inline-flex justify-content-center align-items-center bg-dark text-white rounded-circle shadow-lg" style="width: 80px; height: 80px; font-size: 2rem; font-weight: 900; border: 3px solid #f8f9fa;">
+                        {{ partida.ultimabola|default:"--" }}
+                    </div>
+                </div>
+
+
+
+                <div class="card border-danger mt-auto">
+                    <div class="card-body text-center bg-danger bg-opacity-10 rounded p-2">
+                        <h6 class="fw-bold text-danger small mb-2"><i class="fas fa-exclamation-triangle"></i> Reclamo de Bingo</h6>
+                        <form method="GET" action="{% url 'desempate_admin' id_partida=partida.idpartidabingo %}">
+                            <button type="submit" class="btn btn-danger btn-sm w-100 fw-bold shadow-sm">
+                                <i class="fas fa-pause-circle me-1"></i> PAUSAR JUEGO
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+
+
+                <div class="card border-info mt-3 shadow-sm">
+                    <div class="card-body text-center bg-info bg-opacity-10 rounded p-3">
+                        <h6 class="fw-bold text-info-emphasis mb-2 small"><i class="fas fa-bullhorn me-1"></i> Alerta Global</h6>
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="text" id="admin-mensaje-input-juego" class="form-control border-info" placeholder="Mensaje en pantalla..." autocomplete="off">
+                        </div>
+                        <button type="button" class="btn btn-info btn-sm w-100 fw-bold text-white shadow-sm" onclick="enviarMensajeAdmin(event)">
+                            <i class="fas fa-paper-plane me-1"></i> ENVIAR AULA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <div class="col-lg-6">
+            <div class="card-minimalista p-3 p-md-4 shadow-sm h-100 bg-body-tertiary">
+                <h4 class="animate__animated animate__fadeInDown text-center mb-4"><i class="fas fa-border-all me-2"></i>Tablero Maestro</h4>
+                
+                <div class="master-board">
+                    {% for letra, datos in tablero_maestro.items %}
+                    <div class="master-col">
+                        <div class="master-header 
+                            {% if letra == 'B' %}bg-primary{% elif letra == 'I' %}bg-danger{% elif letra == 'N' %}bg-secondary{% elif letra == 'G' %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ letra }}
+                        </div>
+                        
+                        {% for numero in datos.rango %}
+                            {% if numero in bolas_llamadas %}
+                                <div id="bola-maestra-{{ numero }}" class="ball ball-called {% if numero == partida.ultimabola %}ball-latest{% endif %}">
+                                    {{ numero }}
+                                </div>
+                            {% else %}
+                                <div id="bola-maestra-{{ numero }}" class="ball ball-pending">
+                                    {{ numero }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+
+
+        <div class="col-lg-3">
+            <div class="card-minimalista p-3 shadow-sm h-100 bg-body">
+                <h5 class="fw-bold text-center mb-3"><i class="fas fa-satellite-dish text-success me-2"></i>Radar en Vivo</h5>
+                
+                <div class="text-center mb-3 pb-2 border-bottom">
+                    <span class="badge bg-success px-3 py-2 rounded-pill fs-6"><span id="contador-conectados">{{ jugadores_en_sala.count|default:"0" }}</span> Conectados</span>
+                </div>
+                
+                <div class="flex-grow-1 overflow-auto" style="max-height: 60vh;">
+                    <div class="list-group list-group-flush" id="lista-jugadores-conectados" role="list">
+                        {% for j in jugadores_en_sala %}
+                        <div class="list-group-item bg-transparent text-body d-flex align-items-center py-2 px-1 border-0 border-bottom border-light" role="listitem">
+                            <div class="text-white rounded-circle d-flex justify-content-center align-items-center me-2 flex-shrink-0"
+                                 style="width: 30px; height: 30px; font-weight: bold; background-color: #4F46E5; font-size: 0.85rem;">
+                                {{ j.aliasjugador|slice:":1"|upper }}
+                            </div>
+                            <span class="fw-bold text-truncate" style="font-size: 0.9rem;">{{ j.aliasjugador }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item bg-transparent border-0 text-center text-body-secondary py-5" role="listitem">
+                            <i class="fas fa-ghost fs-2 mb-3 text-muted d-block" aria-hidden="true"></i>
+                            <small>Nadie en la sala</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+
+
+{% block extra_js %}
+<script>
+    window.BINGO_CONFIG = {
+        id_partida: "{{ partida.idpartidabingo }}",
+        id_bingo: "{{ partida.idbingo.idbingo }}"
+    };
+</script>
+<script src="{% static 'js/bingo_socket.js' %}"></script>
+
+
+
+<script>
+    function enviarMensajeAdmin(event) {
+        const input = document.getElementById('admin-mensaje-input') || document.getElementById('admin-mensaje-input-juego');
+        const mensaje = input.value.trim();
+        if (mensaje !== "" && window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
+            
+            window.bingoSocket.send(JSON.stringify({
+                'tipo': 'admin_broadcast',
+                'mensaje': mensaje
+            }));
+            
+            input.value = ""; 
+            
+            const btn = event.currentTarget;
+            const textOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i> ENVIADO';
+            btn.classList.replace('btn-info', 'btn-success');
+            setTimeout(() => {
+                btn.innerHTML = textOriginal;
+                btn.classList.replace('btn-success', 'btn-info');
+            }, 2000);
+        }
+    }
+</script>
+
+
+
+{% if partida.estadopartida == 'En Juego' %}
+<script>
+    // =========================================================
+    // MOTOR DE PILOTO AUTOMÁTICO
+    // =========================================================
+    let autoDrawInterval = null;
+
+
+
+    function toggleAutoDraw(switchElement) {
+        const btnManual = document.getElementById('btn-sacar-bola');
+        
+        if (switchElement.checked) {
+            // MODO ON: Bloqueamos botón manual, avisamos al admin y encendemos el motor (5000 ms = 5s)
+            btnManual.disabled = true;
+            btnManual.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> EXTRACCIÓN AUTOMÁTICA...';
+            
+            // Sacamos la primera bola al instante para no hacer esperar 5s la primera vez
+            sacarSiguienteBola(); 
+            // Arrancamos el bucle
+            autoDrawInterval = setInterval(sacarSiguienteBola, 5000);
+        } else {
+            // MODO OFF: Destruimos el temporizador y devolvemos el control manual
+            clearInterval(autoDrawInterval);
+            autoDrawInterval = null;
+            btnManual.disabled = false;
+            btnManual.innerHTML = '<i class="fas fa-random me-2"></i> SACAR BOLA MANUAL';
+        }
+    }
+
+
+
+    // El Freno de Emergencia
+    function apagarPilotoAutomatico() {
+        const switchAuto = document.getElementById('switchAutoDraw');
+        if (switchAuto && switchAuto.checked) {
+            switchAuto.checked = false; // Bajamos el switch visualmente
+            toggleAutoDraw(switchAuto); // Ejecutamos la función de apagado
+        }
+    }
+    // =========================================================
+
+
+
+    function sacarSiguienteBola() {
+        fetch("{% url 'sacar_bola_api' id_partida=partida.idpartidabingo %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Bola extraída en servidor:", data);
+        });
+    }
+
+
+
+    document.addEventListener('evento_partida', function(e) {
+        const datos = e.detail;
+        
+        // -------------------------------------------------------------
+        // FRENO INSTANTÁNEO SI ALGUIEN GRITA BINGO O SE PAUSA LA SALA
+        // -------------------------------------------------------------
+        if (datos.evento === 'bingo_reclamado' || 
+           (datos.evento === 'estado_cambiado' && (datos.nuevo_estado === 'Pausada' || datos.nuevo_estado === 'Finalizada'))) {
+            apagarPilotoAutomatico();
+        }
+
+
+
+        if (datos.evento === 'nueva_bola') {
+            const numero = datos.numero;
+
+
+
+            const bolaGigante = document.getElementById('bola-gigante-pantalla');
+            if (bolaGigante) {
+                bolaGigante.innerText = numero;
+                bolaGigante.classList.remove('animate__animated', 'animate__bounceIn');
+                void bolaGigante.offsetWidth; 
+                bolaGigante.classList.add('animate__animated', 'animate__bounceIn');
+            }
+
+
+
+            const bolaMaestra = document.getElementById(`bola-maestra-${numero}`);
+            if (bolaMaestra) {
+                document.querySelectorAll('.ball-latest').forEach(b => b.classList.remove('ball-latest'));
+                bolaMaestra.classList.remove('ball-pending');
+                bolaMaestra.classList.add('ball-called', 'ball-latest');
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

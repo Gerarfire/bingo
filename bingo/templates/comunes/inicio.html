@@ -1,0 +1,319 @@
+{% extends 'comunes/base.html' %}
+{% block title %}Inicio - CoopBingo{% endblock %}
+
+
+
+{% block content %}
+<div class="container py-5 text-center d-flex flex-column justify-content-center" style="min-height: 70vh;">
+    
+    <h1 class="fw-bold mb-4">Bienvenido a la red de CoopBingo</h1>
+    <p class="text-secondary mb-5">Participa, juega y forma parte de nuestra comunidad cooperativa.</p>
+
+    <!-- WIDGET DE SALDO -->
+    {% if user.is_authenticated and es_jugador and saldo_jugador %}
+    <div class="row justify-content-center mb-5">
+        <div class="col-12 col-sm-8 col-md-6">
+            <div class="card border-0 rounded-4 overflow-hidden shadow-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body p-4 text-white text-center">
+                    <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                        <i class="fas fa-wallet fa-lg"></i>
+                        <small class="text-uppercase fw-bold" style="opacity: 0.9;">Saldo Disponible</small>
+                    </div>
+                    <h2 class="mb-3" style="font-size: 2.5rem; font-weight: bold;">${{ saldo_jugador }}</h2>
+                    <a href="{% url 'recargar_saldo' %}" class="btn btn-light btn-sm fw-bold rounded-pill px-4">
+                        <i class="fas fa-plus-circle me-1"></i> Recargar Saldo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+        {% if user.is_staff %}
+            <div class="mt-4">
+                <a href="{% url 'dashboard' %}" class="btn btn-indigo btn-lg shadow-sm px-5 rounded-pill w-100 w-sm-auto">
+                    <i class="fas fa-chart-line me-2"></i> Ir a mi Panel de Control
+                </a>
+            </div>
+        {% else %}
+            {% if es_jugador %}
+                <div class="d-flex flex-column flex-sm-row justify-content-center gap-3 mt-4">
+                    <a href="{% url 'mis_cartones' %}" class="btn btn-success btn-lg shadow-sm px-4 rounded-pill w-100 w-sm-auto">
+                        <i class="fas fa-ticket-alt me-2"></i> Ver Mis Cartones
+                    </a>
+                    <a href="{% url 'venta_cartones' %}" class="btn btn-success btn-lg shadow-sm px-4 rounded-pill w-100 w-sm-auto">
+                        <i class="fas fa-store me-2"></i> Tienda de Cartones
+                    </a>
+                </div>
+            {% else %}
+                <div class="mt-4">
+                    <button class="btn btn-indigo btn-lg shadow-sm px-5 rounded-pill w-100 w-sm-auto" data-bs-toggle="modal" data-bs-target="#modalPromoSocio">
+                        <i class="fas fa-user-plus me-2"></i> Convertirme en Socio
+                    </button>
+                </div>
+            {% endif %}
+        {% endif %}
+    {% else %}
+        <div class="d-flex flex-column flex-sm-row justify-content-center gap-3 mb-5">
+            <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg shadow-sm px-5 rounded-pill fw-medium">
+                Ingresar
+            </a>
+            <a href="{% url 'seleccion_registro' %}" class="btn btn-primary btn-lg shadow-sm px-5 rounded-pill fw-medium">
+                Registrarse
+            </a>
+        </div>
+        
+        <div>
+            <a href="#info-sistema" class="text-decoration-none text-secondary fw-bold hover-primary" style="transition: all 0.3s ease;">
+                Saber más <i class="fas fa-arrow-down ms-1 bounce-anim"></i>
+            </a>
+        </div>
+    {% endif %}
+
+
+
+</div>
+
+
+
+<!-- ==========================================
+     NUEVA SECCIÓN: CARTELERA DE BINGOS ACTIVOS
+     ========================================== -->
+{% if bingos_activos %}
+<div id="eventos-activos" class="container py-5 mt-4">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold">Próximos Eventos</h2>
+        <p class="text-secondary">Asegura tu cartón y participa por grandes premios</p>
+    </div>
+    
+    <!-- Contenedor Grid (Se adapta a móviles y se pone lado a lado en PC) -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
+        {% for b in bingos_activos %}
+        <div class="col">
+            <!-- TARJETA AZUL -->
+            <div class="card border-0 rounded-4 overflow-hidden shadow h-100 transition-hover" style="background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);">
+                <div class="p-4 text-white d-flex flex-column justify-content-between h-100">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span class="badge {% if b.estadobingo == 'En Curso' %}bg-danger animate__animated animate__pulse animate__infinite{% else %}bg-warning text-dark{% endif %} font-monospace fw-bold">{{ b.estadobingo|upper }}</span>
+                        <span class="badge text-bg-light text-indigo">{{ b.tipobingo|upper }}</span>
+                    </div>
+                    <div class="my-4">
+                        <div class="small text-white-50 mb-1"><i class="far fa-calendar-alt me-1"></i> {{ b.fechaprogramadabingo|date:"d M Y - H:i" }}</div>
+                        <h4 class="fw-bold text-white mb-2" style="word-break: break-word;">{{ b.titulobingo }}</h4>
+                        <p class="small text-white-50 mb-3" style="word-break: break-word;">{{ b.descripcionpremiomayor }}</p>
+                        
+                        <div class="bg-dark bg-opacity-25 rounded p-2 mb-2 border border-white border-opacity-25">
+                            <span class="small fw-medium text-white" style="word-break: break-word;">
+                                {% if b.tipobingo == 'Virtual' %}
+                                    {% if user.is_authenticated %}
+                                        <a href="{{ b.urlsesionbingo }}" target="_blank" rel="noopener noreferrer" class="text-white text-decoration-none fw-bold" title="Enlace de la sala">
+                                            <i class="fas fa-link text-warning me-2"></i>{{ b.urlsesionbingo }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-white-50" title="Debes iniciar sesión para ver el enlace" data-bs-toggle="tooltip">
+                                            <i class="fas fa-lock text-warning me-2"></i>Sala Virtual Privada (Inicia sesión)
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <i class="fas fa-map-marker-alt text-warning me-2"></i>{{ b.lugarbingo|default:'Por definir' }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-top border-white border-opacity-25 pt-3 mt-auto">
+                        <div>
+                            <span class="small text-white-50 d-block">Pozo Mayor</span>
+                            <h3 class="fw-bold text-warning mb-0">{{ b.idunidadmonetaria.simbolomoneda }}{{ b.premiomayor }}</h3>
+                        </div>
+                        <div class="text-end">
+                            <span class="small text-white-50 d-block">Valor Entrada</span>
+                            <span class="fw-bold fs-5 text-white">{{ b.idunidadmonetaria.simbolomoneda }}{{ b.preciocarton }}</span>
+                        </div>
+                    </div>
+                    {% if b.sala_abierta %}
+                        <a href="{% url 'sala_espera' b.id_partida_a_entrar %}" class="btn btn-warning w-100 fw-bold shadow-sm animate__animated animate__pulse animate__infinite" style="animation-duration: 2s;">
+                            <i class="fas fa-door-open me-2"></i> ¡Sala de Espera Abierta!
+                        </a>
+                    {% else %}
+                        <button class="btn btn-secondary w-100 fw-bold disabled" style="opacity: 0.7;" aria-label="Sala cerrada para este bingo" title="Sala cerrada para este bingo">
+                            <i class="fas fa-lock me-2"></i> Sala Cerrada
+                        </button>
+                        <div class="form-text small text-center mt-2">
+                            La sala se abrirá 30 minutos antes del inicio.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+
+<!-- ==========================================
+     SECCIÓN: SOBRE NOSOTROS Y REDES SOCIALES
+     ========================================== -->
+<div id="info-sistema" class="container py-5 border-top mt-4">
+    <div class="row align-items-center py-5">
+        <div class="col-md-6 mb-4 mb-md-0">
+            <span class="badge bg-primary-subtle text-primary mb-2 border">Nuestra Cooperativa</span>
+            
+            <h2 class="fw-bold mb-4">{{ config_web.titulosobrenosotros|default:"¿Qué es CoopBingo?" }}</h2>
+            
+            <p class="text-secondary" style="line-height: 1.8;">
+                {% if config_web.descripcionsobrenosotros %}
+                    {{ config_web.descripcionsobrenosotros|linebreaksbr }}
+                {% else %}
+                    CoopBingo es una plataforma integral diseñada para gestionar eventos, préstamos y ahorros de manera transparente y segura para toda nuestra comunidad. Únete para disfrutar de un ecosistema financiero y de entretenimiento en un solo lugar.
+                {% endif %}
+            </p>
+
+
+
+            <!-- ICONOS DE CONTACTO Y REDES SOCIALES -->
+            <div class="d-flex gap-3 mt-4">
+                {% if config_web.numerowhatsapp %}
+                <a href="https://wa.me/{{ config_web.numerowhatsapp|cut:'+'|cut:' ' }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success rounded-circle" style="width: 45px; height: 45px; display: inline-flex; align-items: center; justify-content: center;" data-bs-toggle="tooltip" title="Escríbenos por WhatsApp">
+                    <i class="fab fa-whatsapp fs-5"></i>
+                </a>
+                {% endif %}
+                
+                {% if config_web.enlaceinstagram %}
+                <a href="{{ config_web.enlaceinstagram }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-danger rounded-circle" style="width: 45px; height: 45px; display: inline-flex; align-items: center; justify-content: center;" data-bs-toggle="tooltip" title="Síguenos en Instagram">
+                    <i class="fab fa-instagram fs-5"></i>
+                </a>
+                {% endif %}
+                
+                {% if config_web.enlacefacebook %}
+                <a href="{{ config_web.enlacefacebook }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary rounded-circle" style="width: 45px; height: 45px; display: inline-flex; align-items: center; justify-content: center;" data-bs-toggle="tooltip" title="Visita nuestro Facebook">
+                    <i class="fab fa-facebook-f fs-5"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-6 text-center">
+            {% if config_web.imagenpromocional %}
+                <img src="{{ config_web.imagenpromocional.url }}" alt="CoopBingo Promocional" class="img-fluid rounded-4 shadow">
+            {% else %}
+                <div class="p-5 bg-body-tertiary rounded-4 border d-flex flex-column justify-content-center align-items-center h-100" style="min-height: 300px;">
+                    <i class="fas fa-image text-muted mb-3" style="font-size: 4rem;"></i>
+                    <p class="text-muted small fw-bold">Espacio para Imagen Promocional<br>(Configurable desde el Admin)</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+
+<!-- ==========================================
+     MODALES DEL SISTEMA
+     ========================================== -->
+{% if preguntar_jugador %}
+<div class="modal fade" id="modalPreguntaJugador" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">¡Registro Exitoso!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center pt-2 pb-4">
+                <div class="rounded-circle bg-success bg-opacity-10 text-success d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; font-size: 32px;">
+                    <i class="fas fa-gamepad"></i>
+                </div>
+                <h5 class="fw-bold">¿Deseas jugar en los Bingos?</h5>
+                <p class="text-secondary small mb-0 px-3">
+                    Como socio, tienes derecho a habilitar tu perfil de jugador. Solo necesitas crear un Alias público.
+                </p>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Quizás más tarde</button>
+                <a href="{% url 'registro_jugador' %}" class="btn btn-indigo">Sí, activar perfil de juego</a>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        setTimeout(function() {
+            var modalElement = document.getElementById('modalPreguntaJugador');
+            if(modalElement) {
+                new bootstrap.Modal(modalElement).show();
+            }
+        }, 500);
+    });
+</script>
+{% endif %}
+
+
+
+{% if mostrar_promo_socio %}
+<div class="modal fade" id="modalPromoSocio" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow-lg border-start border-warning border-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-warning"><i class="fas fa-star me-2"></i> ¡Sube al siguiente nivel!</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center pt-3 pb-4">
+                <p class="text-secondary mb-3 px-3">
+                    Actualmente juegas como invitado. Al convertirte en <strong>Socio Oficial</strong> de CoopBingo, desbloquearás acceso exclusivo a:
+                </p>
+                <ul class="list-unstyled text-start bg-light p-3 rounded-3 mb-4 mx-3 small fw-medium text-dark">
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Solicitud de Préstamos y Créditos.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Fondos de Ahorro con intereses.</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i> Participación en el Catálogo de Premios Físicos.</li>
+                </ul>
+                <h6 class="fw-bold mb-0">¿Te animas a dar el salto?</h6>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Quizás luego</button>
+                <a href="{% url 'perfil' %}" class="btn btn-warning fw-bold text-dark"><i class="fas fa-arrow-right me-2"></i> Ir a mi Perfil para Ascender</a>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        setTimeout(function() {
+            var promoModal = document.getElementById('modalPromoSocio');
+            if(promoModal) {
+                new bootstrap.Modal(promoModal).show();
+            }
+        }, 800);
+    });
+</script>
+{% endif %}
+
+
+
+<style>
+    html {
+        scroll-behavior: smooth;
+    }
+    .bounce-anim {
+        display: inline-block;
+        animation: bounce 2s infinite;
+    }
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+        40% {transform: translateY(5px);}
+        60% {transform: translateY(3px);}
+    }
+    .transition-hover {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .transition-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important;
+    }
+</style>
+{% endblock %}
+
+
+
+

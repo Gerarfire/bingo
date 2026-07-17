@@ -1,0 +1,165 @@
+{% extends 'comunes/base.html' %}
+{% block title %}Mis Cartones - CoopBingo{% endblock %}
+
+
+
+{% block content %}
+<style>
+    .carton-wrapper { width: 100%; max-width: 160px; margin: 0 auto; }
+    /* FIX: minmax(0, 1fr) obliga a las columnas de la cuadrícula a reducirse estrictamente al contenedor */
+    .mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; width: 100%; margin: 0 auto; }
+    
+    /* FIX: min-width: 0 y overflow: hidden evitan que los números fuercen la expansión de la celda */
+    .mini-cell { font-size: clamp(0.65rem, 2.5vw, 0.85rem); border: 1px solid var(--bs-border-color); text-align: center; background-color: var(--bs-body-bg); color: var(--bs-body-color); padding: 4px 0; aspect-ratio: 1; display: flex; justify-content: center; align-items: center; border-radius: 4px; font-weight: 700; min-width: 0; overflow: hidden; }
+    
+    .free { background-color: #ffc107 !important; font-weight: bold; color: #000 !important; }
+</style>
+<div class="container py-5">
+    <h3 class="fw-bold mb-4"><i class="fas fa-ticket-alt text-primary me-2"></i> Mi Bóveda de Cartones</h3>
+    
+    {% if bingos_agrupados %}
+        
+        <!-- FILTRO INTELIGENTE CORREGIDO -->
+        <div class="mb-4">
+            <label class="form-label fw-bold text-secondary small"><i class="fas fa-filter me-1"></i> Filtrar por Evento</label>
+            <select id="filtro-boveda" class="form-select animate__animated animate__fadeInDown shadow-sm border-0 fw-bold w-100 w-md-50" onchange="filtrarBoveda(this.value)" title="Filtrar cartones por evento" aria-label="Filtrar cartones por evento">
+                <option value="ALL">🌟 Mostrar Todos mis Cartones</option>
+                {% for b in bingos_agrupados %}
+                    <option value="bingo-{{ b.bingo.idbingo }}">{{ b.bingo.titulobingo }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+
+
+        {% for b in bingos_agrupados %}
+        <form method="post" action="{% url 'descargar_cartones_pdf' b.bingo.idbingo %}" target="_blank" class="boveda-bingo-group animate__animated animate__fadeIn" id="bingo-{{ b.bingo.idbingo }}">
+            {% csrf_token %}
+            <div class="card-minimalista p-4 mb-4 border-top border-indigo border-4 shadow-sm">
+                
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center border-bottom pb-3 mb-4">
+                    <div class="mb-3 mb-md-0">
+                        <span class="badge {% if b.bingo.estadobingo == 'En Curso' %}bg-success{% elif b.bingo.estadobingo == 'Finalizado' or b.bingo.estadobingo == 'Cancelado' %}bg-secondary{% else %}bg-primary{% endif %} mb-2">{{ b.bingo.estadobingo|upper }}</span>
+                        <h4 class="fw-bold mb-0">{{ b.bingo.titulobingo }}</h4>
+                        <span class="small text-muted"><i class="far fa-calendar-alt me-1"></i> {{ b.bingo.fechaprogramadabingo|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="text-md-end text-start mt-3 mt-md-0">
+                        <!-- LÓGICA DE BLOQUEO DE PDFs PARA EVENTOS CADUCADOS -->
+                        {% if b.bingo.estadobingo == 'Finalizado' or b.bingo.estadobingo == 'Cancelado' %}
+                            <div class="badge bg-danger-subtle text-danger p-2 border border-danger border-opacity-25 shadow-sm">
+                                <i class="fas fa-lock me-1"></i> Evento Finalizado (Caducados)
+                            </div>
+                        {% else %}
+                            <button type="submit" class="btn btn-danger fw-bold shadow-sm">
+                                <i class="fas fa-file-pdf me-2"></i> Generar PDF
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+
+
+                <div class="row g-3 justify-content-center">
+                    {% for c in b.cartones %}
+                    <div class="col-6 col-sm-4 col-md-3">
+                        <div class="border rounded p-2 p-md-3 text-center bg-body-tertiary shadow-sm h-100 d-flex flex-column justify-content-between position-relative {% if b.bingo.estadobingo == 'Finalizado' or b.bingo.estadobingo == 'Cancelado' %}opacity-75{% endif %}">
+                            
+                            {% if b.bingo.estadobingo != 'Finalizado' and b.bingo.estadobingo != 'Cancelado' %}
+                            <div class="position-absolute top-0 end-0 m-1 m-md-2">
+                                <input class="form-check-input border-secondary shadow-sm" type="checkbox" name="cartones_seleccionados" value="{{ c.idcarton.idcarton }}" style="width: 1.2rem; height: 1.2rem; cursor: pointer;" aria-label="Seleccionar cartón {{ c.idcarton.codigocarton }}">
+                            </div>
+                            {% endif %}
+
+
+
+                            <div class="carton-wrapper">
+                                <span class="d-block text-muted mb-2 fw-semibold mt-1 text-truncate w-100" style="font-size: clamp(0.65rem, 2.5vw, 0.85rem);">Cartón Oficial</span>
+                                
+                                {{ c.idcarton.matriznumeros|json_script:c.idcarton.codigocarton }}
+                                <div class="carton-grid-container mb-3 bg-body p-1 p-md-2 rounded border" data-target="{{ c.idcarton.codigocarton }}"></div>
+                            </div>
+                            
+                            <div>
+                                <span class="d-block font-monospace fw-bold animate__animated animate__fadeInDown text-break {% if b.bingo.estadobingo == 'Finalizado' or b.bingo.estadobingo == 'Cancelado' %}text-decoration-line-through text-muted{% else %}text-body{% endif %}" style="font-size: clamp(0.7rem, 2.5vw, 1rem);">
+                                    {{ c.idcarton.codigocarton }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5 card-minimalista p-4 shadow-sm">
+            <i class="fas fa-box-open fs-1 text-muted mb-3"></i>
+            <h5 class="fw-bold text-secondary">Aún no tienes cartones en tu bóveda.</h5>
+            <p class="text-muted">Participa en nuestros próximos eventos y adquiere tus cartones desde la tienda.</p>
+            <a href="{% url 'venta_cartones' %}" class="btn btn-indigo mt-3"><i class="fas fa-store me-2"></i> Ir a la Tienda</a>
+        </div>
+    {% endif %}
+</div>
+
+
+
+<script>
+    function renderMiniGrid(matriz) {
+        if (!matriz) return '';
+        let html = '<div class="mini-grid">';
+        const cols = ['B', 'I', 'N', 'G', 'O'];
+        for(let c of cols) {
+            // FIX: Se añade min-width, overflow y tamaño adaptativo a las celdas de las letras
+            html += `<div class="bg-primary text-white fw-bold rounded-1 d-flex justify-content-center align-items-center" style="font-size: clamp(0.55rem, 2vw, 0.75rem); height: 24px; min-width: 0; overflow: hidden;">${c}</div>`;
+        }
+        for(let f = 0; f < 5; f++) {
+            for(let c of cols) {
+                let val = matriz[c][f];
+                let isFree = (val === 'FREE');
+                html += `<div class="mini-cell ${isFree ? 'free' : ''}">${isFree ? 'X' : val}</div>`;
+            }
+        }
+        return html + '</div>';
+    }
+
+
+
+    // LÓGICA DE FILTRO BLINDADA (Usando Bootstrap d-none)
+    function filtrarBoveda(bingoId) {
+        const grupos = document.querySelectorAll('.boveda-bingo-group');
+        grupos.forEach(grupo => {
+            if (bingoId === 'ALL' || grupo.id === bingoId) {
+                grupo.classList.remove('d-none');
+            } else {
+                grupo.classList.add('d-none');
+            }
+        });
+    }
+
+
+
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('.carton-grid-container').forEach(container => {
+            let targetId = container.getAttribute('data-target');
+            let scriptEl = document.getElementById(targetId);
+            
+            if (scriptEl) {
+                try {
+                    // El json_script nos asegura que la data llega limpia y pura
+                    let rawData = JSON.parse(scriptEl.textContent);
+                    
+                    // Doble filtro por si la base de datos lo mandó como string
+                    if (typeof rawData === 'string') {
+                        let fixedStr = rawData.replace(/'/g, '"');
+                        rawData = JSON.parse(fixedStr);
+                    }
+                    container.innerHTML = renderMiniGrid(rawData);
+                } catch (e) {
+                    console.error("Error al renderizar el cartón:", e);
+                    container.innerHTML = '<span class="text-danger small fw-bold">Error visual</span>';
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

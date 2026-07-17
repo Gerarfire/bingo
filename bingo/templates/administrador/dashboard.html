@@ -1,0 +1,1793 @@
+{% extends 'comunes/base.html' %}
+
+{% block title %}Consola de Administración Suprema - CoopBingo{% endblock %}
+
+{% block content %}
+<style>
+    /* CSS MAGIA: Tablas desplazables con encabezados fijos */
+    .animate__animated.animate__fadeInDown {
+        max-height: 380px;
+        overflow-y: auto;
+    }
+    .animate__animated.animate__fadeInDown thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        /* FIX: Le devolvemos un fondo sólido pero camaleónico para tapar el texto al hacer scroll */
+        background-color: var(--bs-body-bg);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    /* CSS MAGIA: Scroll elegante para el buscador de Bingos */
+    .opciones-scroll {
+        max-height: 250px; 
+        overflow-y: auto; 
+        overflow-x: hidden;
+    }
+    .opciones-scroll::-webkit-scrollbar { width: 6px; }
+    .opciones-scroll::-webkit-scrollbar-track { background: #f8f9fa; border-radius: 4px; }
+    .opciones-scroll::-webkit-scrollbar-thumb { background: #adb5bd; border-radius: 4px; }
+    .opciones-scroll::-webkit-scrollbar-thumb:hover { background: #6c757d; }
+</style>
+
+<div class="container-fluid px-lg-4 pb-5">
+    
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card-minimalista p-3 text-center border-start border-primary border-4 h-100">
+                <span class="text-secondary small fw-bold text-uppercase" data-bs-toggle="tooltip" title="Total de socios inscritos en la cooperativa">Afiliados</span>
+                <h4 class="fw-bold mb-0 text-body">{{ total_socios }}</h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card-minimalista p-3 text-center border-start border-danger border-4 h-100">
+                <span class="text-secondary small fw-bold text-uppercase" data-bs-toggle="tooltip" title="Cartera total pendiente de cobro en préstamos activos">Capital en Calle</span>
+                <h4 class="fw-bold mb-0 text-danger">${{ deuda_calle }}</h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card-minimalista p-3 text-center border-start border-success border-4 h-100">
+                <span class="text-secondary small fw-bold text-uppercase" data-bs-toggle="tooltip" title="Eventos de bingo planificados o ejecutándose actualmente">Eventos Activos</span>
+                <h4 class="fw-bold mb-0 text-success">{{ bingos_activos }}</h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card-minimalista p-3 text-center border-start border-indigo border-4 h-100">
+                <span class="text-secondary small fw-bold text-uppercase" data-bs-toggle="tooltip" title="Total de usuarios con perfiles de juego independientes creados">Jugadores Activos</span>
+                <h4 class="fw-bold mb-0 text-indigo">{{ total_jugadores }}</h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-3">
+            <div class="card-minimalista p-3 position-sticky border-start border-success border-4" style="top: 20px;">
+                <p class="small fw-bold text-uppercase text-secondary px-2 mb-2">Consola de Mandos</p>
+                <div class="nav flex-column nav-pills gap-1" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                    <button class="nav-link active text-start px-3 py-2.5 rounded-3 fw-medium" data-bs-toggle="pill" data-bs-target="#mod-dashboard" type="button" role="tab"><i class="fas fa-chart-pie me-2 text-center w-20px"></i> Dashboard</button>
+                    <button class="nav-link text-start px-3 py-2.5 rounded-3 fw-medium" data-bs-toggle="pill" data-bs-target="#mod-comunidad" type="button" role="tab"><i class="fas fa-users-cog me-2 text-center w-20px"></i> Comunidad y Socios</button>
+                    <button class="nav-link text-start px-3 py-2.5 rounded-3 fw-medium" data-bs-toggle="pill" data-bs-target="#mod-finanzas" type="button" role="tab"><i class="fas fa-money-check-alt me-2 text-center w-20px"></i> Finanzas y Recaudación</button>
+                    <button class="nav-link text-start px-3 py-2.5 rounded-3 fw-medium" data-bs-toggle="pill" data-bs-target="#mod-bingos" type="button" role="tab"><i class="fas fa-bullhorn me-2 text-center w-20px"></i> Jornadas de Bingo</button>
+                    <button class="nav-link text-start px-3 py-2.5 rounded-3 fw-medium" data-bs-toggle="pill" data-bs-target="#mod-cartones" type="button" role="tab"><i class="fas fa-ticket-alt me-2 text-center w-20px"></i> Fábrica de Cartones</button>
+                    <button class="nav-link text-start px-3 py-2.5 rounded-3 fw-medium" data-bs-toggle="pill" data-bs-target="#mod-sistema" type="button" role="tab"><i class="fas fa-server me-2 text-center w-20px"></i> Sistema y Configuración</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-9">
+            <div class="tab-content" id="v-pills-tabContent">
+
+                <div class="tab-pane fade show active" id="mod-dashboard" role="tabpanel">
+                    <div class="card-minimalista p-4 mb-4 border-start border-warning border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                            <h5 class="fw-bold mb-0 text-body"><i class="fas fa-chart-simple text-primary me-2"></i> Análisis de Crecimiento y Ganancias</h5>
+                            <select id="filtro-tiempo" class="form-select form-select-sm w-auto bg-body text-body border-secondary-subtle fw-bold shadow-sm" title="Seleccionar rango de tiempo" aria-label="Seleccionar rango de tiempo">
+                                <option value="anio">Este Año</option>
+                                <option value="mes" selected>Este Mes</option>
+                                <option value="semana">Esta Semana</option>
+                                <option value="ayer">Ayer</option>
+                                <option value="hoy">Hoy</option>
+                            </select>
+                        </div>
+                    <div class="position-relative w-100" style="height: 350px;">
+                        <canvas id="graficoRendimiento"></canvas>
+                    </div>
+                </div>
+            </div>
+                
+                <div class="tab-pane fade" id="mod-comunidad" role="tabpanel">
+                    
+                    <div class="card-minimalista p-4 mb-4 border-start border-primary border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Directorio Oficial de Socios</h5>
+                            <a href="{% url 'reporte_socios_puntuales' %}" class="btn btn-sm btn-success shadow-sm fw-bold">
+                                <i class="fas fa-star me-2"></i> Evaluar Socios Estrella (Excel)
+                            </a>
+                        </div>
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="search-socio" class="form-control bg-transparent border-start-0" placeholder="Buscar por cédula o nombre..." onkeyup="filterTable('search-socio', 'table-socios')">
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle" id="table-socios">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>Cédula</th>
+                                        <th>Socio</th>
+                                        <th>Contacto</th>
+                                        <th>Clasificación</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for s in socios %}
+                                    <tr>
+                                        <td class="fw-bold">{{ s.cisocio }}</td>
+                                        <td>{{ s.primernombresocio }} {{ s.primerapellidosocio }}</td>
+                                        <td>{{ s.telefonopersonalsocio }}</td>
+                                        <td><span class="small text-muted">{{ s.idtiposocio.nombretiposocio }}</span></td>
+                                        <td><span class="badge {% if s.estadosocio == 'Activo' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">{{ s.estadosocio }}</span></td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-primary border-0 p-1 px-2" data-bs-toggle="modal" data-bs-target="#modalEditarSocio{{ s.idsocio }}" title="Editar socio" aria-label="Editar socio">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-5">
+                            <div class="card-minimalista p-4 h-100 border-start border-info border-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-secondary mb-0">Clasificaciones (`TipoSocio`)</h6>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNuevoTipoSocio" title="Crear nuevo tipo de socio" aria-label="Crear nuevo tipo de socio">
+                                        <i class="fas fa-plus"></i> Nuevo
+                                    </button>
+                                </div>
+                                <div class="list-group list-group-flush animate__animated animate__fadeInDown">
+                                    {% for t in tipos_socio %}
+                                    <div class="list-group-item bg-transparent px-0 py-2 d-flex justify-content-between align-items-center border-bottom">
+                                        <div>
+                                            <div class="fw-bold text-body small">{{ t.nombretiposocio }}</div>
+                                            <div class="text-muted font-monospace small" style="font-size: 0.75rem;">Rol: {{ t.roltiposocio }}</div>
+                                        </div>
+                                        <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar este tipo de socio?');">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="eliminar_tiposocio">
+                                            <input type="hidden" name="id_tipo" value="{{ t.idtiposocio }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Eliminar tipo de socio" aria-label="Eliminar tipo de socio"><i class="fas fa-trash-alt"></i></button>
+                                        </form>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <div class="card-minimalista p-4 h-100 border-start border-success border-4">
+                                <h6 class="fw-bold text-secondary mb-3">Cuentas Bancarias (`CuentaBancaria`)</h6>
+                                <div class="input-group input-group-sm mb-3">
+                                    <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                                    <input type="text" id="search-cuentas" class="form-control bg-transparent border-start-0" placeholder="Buscar banco o titular..." onkeyup="filterTable('search-cuentas', 'table-cuentas')">
+                                </div>
+                                <div class="table-responsive animate__animated animate__fadeInDown">
+                                    <table class="table align-middle table-sm" id="table-cuentas" style="font-size: 0.85rem;">
+                                        <thead>
+                                            <tr class="text-muted">
+                                                <th>Titular</th>
+                                                <th>Banco</th>
+                                                <th>Nº Cuenta</th>
+                                                <th>Principal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for c in accounts %}
+                                            <tr>
+                                                <td>{{ c.idsocio.primerapellidosocio }}</td>
+                                                <td class="fw-semibold">{{ c.nombrebanco }}</td>
+                                                <td class="font-monospace">{{ c.numerocuenta }}</td>
+                                                <td>{% if c.esprincipal %}<i class="fas fa-check text-success"></i>{% else %}-{% endif %}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-minimalista p-4 mb-4 border-start border-indigo border-4">
+                        <h5 class="fw-bold mb-3">Perfiles de Juego Independientes (`Jugador`)</h5>
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="search-jugadores" class="form-control bg-transparent border-start-0" placeholder="Buscar por alias, cédula o correo..." onkeyup="filterTable('search-jugadores', 'table-jugadores')">
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle table-sm" id="table-jugadores">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>Alias Público</th>
+                                        <th>Identificación/Correo</th>
+                                        <th>Crédito Disp.</th>
+                                        <th>Estado Cuenta</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for j in jugadores %}
+                                    <tr>
+                                        <td class="fw-bold text-indigo">{{ j.aliasjugador }}</td>
+                                        <td><div class="small fw-semibold">{{ j.cedulaidentidadjugador|default:"-" }}</div><div class="text-muted" style="font-size:0.75rem;">{{ j.correojugador|default:"" }}</div></td>
+                                        <td class="text-success fw-bold">${{ j.saldocreditojugador }}</td>
+                                        <td><span class="badge {% if j.estadocuentajugador == 'Activo' %}bg-success-subtle text-success{% elif j.estadocuentajugador == 'Suspendido' %}bg-danger-subtle text-danger{% else %}bg-warning-subtle text-warning{% endif %}">{{ j.estadocuentajugador }}</span></td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-primary border-0 p-1 px-2" data-bs-toggle="modal" data-bs-target="#modalEditarJugador{{ j.idjugador }}" title="Editar jugador" aria-label="Editar jugador">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="mod-finanzas" role="tabpanel">
+                    
+                    <div class="card-minimalista p-4 mb-4 border-start border-danger border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Créditos de la Cooperativa (`Prestamo`)</h5>
+                            <a href="{% url 'reporte_cartera_prestamos' %}" class="btn btn-sm btn-danger shadow-sm fw-bold">
+                                <i class="fas fa-file-excel me-2"></i> Exportar Cartera Vencida
+                            </a>
+                        </div>
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="search-creditos" class="form-control bg-transparent border-start-0" placeholder="Buscar por socio..." onkeyup="filterTable('search-creditos', 'table-creditos')">
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle" id="table-creditos">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>Socio</th>
+                                        <th>Monto Base</th>
+                                        <th>Interés</th>
+                                        <th>Total a Pagar</th>
+                                        <th>Saldo Vivo</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in prestamos %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ p.idsocio.primernombresocio }} {{ p.idsocio.primerapellidosocio }}</td>
+                                        <td>${{ p.montoprestamosolicitado }}</td>
+                                        <td class="small text-muted">{{ p.tasainteres }}%</td>
+                                        <td class="fw-bold text-body">${{ p.montototalpagar }}</td>
+                                        <td class="text-danger fw-bold">${{ p.saldopendiente }}</td>
+                                        <td><span class="badge bg-body-secondary text-body border">{{ p.estadoprestamo }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-xl-7">
+                            <div class="card-minimalista p-4 h-100 border-start border-success border-4">
+                                <h5 class="fw-bold mb-3">Validación de Amortizaciones (`Pago`)</h5>
+                                <div class="input-group input-group-sm mb-3">
+                                    <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                                    <input type="text" id="search-pagos" class="form-control bg-transparent border-start-0" placeholder="Buscar por referencia o canal..." onkeyup="filterTable('search-pagos', 'table-pagos')">
+                                </div>
+                                <div class="table-responsive animate__animated animate__fadeInDown">
+                                    <table class="table align-middle table-sm" id="table-pagos" style="font-size:0.85rem;">
+                                        <thead>
+                                            <tr class="text-muted">
+                                                <th>Referencia</th>
+                                                <th>Monto</th>
+                                                <th>Canal</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for py in pagos %}
+                                            <tr>
+                                                <td class="font-monospace fw-bold">{{ py.numeroreferencia|default:"S/N" }}</td>
+                                                <td class="fw-bold text-success">${{ py.montopagado }}</td>
+                                                <td>{{ py.idmetodopago.nombremetodopago }}</td>
+                                                <td><span class="badge {% if py.estadpago == 'Validado' %}bg-success-subtle text-success{% else %}bg-warning-subtle text-warning{% endif %}">{{ py.estadpago }}</span></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-xl-5">
+                            <div class="card-minimalista p-4 h-100 border-start border-info border-4">
+                                <h6 class="fw-bold text-secondary mb-3">Fondos de Ahorro (`Ahorro`)</h6>
+                                <div class="table-responsive animate__animated animate__fadeInDown">
+                                    {% for a in ahorros %}
+                                    <div class="border-bottom py-2 small">
+                                        <div class="d-flex justify-content-between">
+                                            <span class="fw-semibold">{{ a.idsocio.primerapellidosocio }}</span>
+                                            <span class="text-success fw-bold">+${{ a.montoahorro }}</span>
+                                        </div>
+                                        <span class="text-muted" style="font-size:0.7rem;">Tipo: {{ a.tipoahorro }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-minimalista p-4 mb-4 border-start border-warning border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Control de Caja Semanal (`AporteSemanal`)</h5>
+                            <a href="{% url 'reporte_caja_semanal_pdf' %}" target="_blank" class="btn btn-sm btn-warning shadow-sm fw-bold text-dark">
+                                <i class="fas fa-file-pdf me-2"></i> Emitir Cierre de Caja (PDF)
+                            </a>
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle table-sm">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>Socio</th>
+                                        <th>Semana Fiscal</th>
+                                        <th>Planificado</th>
+                                        <th>Modalidad</th>
+                                        <th>Estado Caja</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ap in aportes_semanales %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ ap.idsocio.primernombresocio }} {{ ap.idsocio.primerapellidosocio }}</td>
+                                        <td class="font-monospace text-center">Nº {{ ap.numerosemana }}</td>
+                                        <td>{{ ap.fechaplanificadadada|date:"d/m/Y" }}</td>
+                                        <td><span class="badge bg-body-secondary text-body border">{{ ap.metodoingreso }}</span></td>
+                                        <td><span class="badge {% if ap.estadoaporte == 'Al Dia' %}bg-success-subtle text-success{% else %}bg-danger-subtle text-danger{% endif %}">{{ ap.estadoaporte }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="mod-bingos" role="tabpanel">
+                    
+                    <div class="row g-4 mb-4">
+                        <div class="col-xl-7">
+                            <div class="card-minimalista p-4 h-100 border-start border-primary border-4">
+                                <h5 class="fw-bold mb-4">Parámetros del Evento Matriz (`Bingo`)</h5>
+                                
+                                <form id="form-live-bingo" method="post" action="{% url 'dashboard' %}" enctype="multipart/form-data">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="crear_bingo">
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label for="in-titulo" class="form-label small fw-bold">Título Organizacional</label>
+                                            <input type="text" name="titulobingo" id="in-titulo" class="form-control bg-transparent" placeholder="Ej: Bingo Confraternidad" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="in-precio" class="form-label small fw-bold">Costo del Cartón</label>
+                                            <input type="number" step="0.01" min="0" oninput="validity.valid||(value='');" name="preciocarton" id="in-precio" class="form-control bg-transparent" placeholder="Ej: 5000" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="in-premio" class="form-label small fw-bold">Premio Mayor Líquido</label>
+                                            <input type="number" step="0.01" min="0" oninput="validity.valid||(value='');" name="premiomayor" id="in-premio" class="form-control bg-transparent" placeholder="Ej: 100000" required>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="in-desc" class="form-label small fw-bold">Detalle del Premio Principal</label>
+                                            <input type="text" name="descripcionpremiomayor" id="in-desc" class="form-control bg-transparent" placeholder="Ej: Viaje a Europa" required>
+                                        </div>
+                                        
+                                        <div class="col-12">
+                                            <label for="in-descripcion-premios" class="form-label small fw-bold">Descripción Otros Premios (Opcional)</label>
+                                            <textarea name="descripcionpremios" id="in-descripcion-premios" class="form-control bg-transparent" rows="2" placeholder="Ej: Premio en efectivo, regalo sorpresa..."></textarea>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="in-imagen-premio" class="form-label small fw-bold">Imagen del Premio</label>
+                                            <input type="file" name="rutaimagenpremiomayor" id="in-imagen-premio" class="form-control bg-transparent" accept="image/*">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="in-video-promocional" class="form-label small fw-bold">Video Promocional</label>
+                                            <input type="file" name="urlvideopromocional" id="in-video-promocional" class="form-control bg-transparent" accept="video/*">
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label for="in-fecha" class="form-label small fw-bold">Fecha y Hora de la Convocatoria</label>
+                                            <input type="datetime-local" name="fechaprogramadabingo" id="in-fecha" class="form-control bg-transparent" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="in-tipo" class="form-label small fw-bold">Estructura del Evento</label>
+                                            <select name="tipobingo" id="in-tipo" class="form-select bg-transparent" onchange="toggleCamposLugar(this.value)">
+                                                <option value="Virtual">Virtual</option>
+                                                <option value="Presencial">Presencial</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="in-moneda" class="form-label small fw-bold">Moneda / Divisa</label>
+                                            <select name="idunidadmonetaria" id="in-moneda" class="form-select bg-transparent" required>
+                                                {% for u in unidades_monetarias %}
+                                                <option value="{{ u.idunidadmonetaria }}" data-tipo="{{ u.tipomoneda }}" data-simbolo="{{ u.simbolomoneda }}">{{ u.nombremoneda }} ({{ u.simbolomoneda }})</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="in-estado" class="form-label small fw-bold">Estado Operativo</label>
+                                            <select name="estadobingo" id="in-estado" class="form-select bg-transparent">
+                                                <option value="Programado">Programado</option>
+                                                <option value="En Curso">En Curso</option>
+                                                <option value="Finalizado">Finalizado</option>
+                                                <option value="Cancelado">Cancelado</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12" id="div-lugar" style="display: none;">
+                                            <label class="form-label small fw-bold">Lugar del Evento (Presencial)</label>
+                                            <input type="text" name="lugarbingo" id="in-lugar" class="form-control bg-transparent" placeholder="Ej: Coliseo Central">
+                                        </div>
+                                        <div class="col-12" id="div-sesion">
+                                            <label class="form-label small fw-bold">Link de la Sesión (Virtual)</label>
+                                            <input type="url" name="urlsesionbingo" id="in-sesion" class="form-control bg-transparent" placeholder="https://zoom.us/j/...">
+                                        </div>
+                                    </div>
+                                    <div class="mt-4 text-end">
+                                        <button type="submit" class="btn btn-indigo shadow-sm"><i class="fas fa-save me-2"></i> Lanzar Evento</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-5">
+                            <div class="card border-0 rounded-4 overflow-hidden shadow h-100" style="background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);">
+                                <div class="p-4 text-white d-flex flex-column justify-content-between h-100">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <span id="out-estado" class="badge bg-warning text-dark font-monospace fw-bold">PROGRAMADO</span>
+                                        <span id="out-tipo" class="badge bg-body-secondary text-body text-indigo">VIRTUAL</span>
+                                    </div>
+                                    <div class="my-4">
+                                        <h4 id="out-titulo" class="fw-bold text-white mb-2" style="word-break: break-word;">Título Inicial del Evento</h4>
+                                        <p id="out-desc" class="small text-white-50 mb-3" style="word-break: break-word;">Escribe en la descripción del formulario para simular la visualización comercial del socio.</p>
+                                        
+                                        <div class="bg-dark bg-opacity-25 rounded p-2 mb-2 border border-white border-opacity-25">
+                                            <i class="fas fa-map-marker-alt text-warning me-2"></i> 
+                                            <span id="out-lugar" class="small fw-medium text-white" style="word-break: break-word;">Enlace no definido</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-top border-white border-opacity-25 pt-3 mt-auto">
+                                        <div>
+                                            <span class="small text-white-50 d-block">Pozo Mayor</span>
+                                            <h3 id="out-premio" class="fw-bold text-warning mb-0">$0.00</h3>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="small text-white-50 d-block">Valor Entrada</span>
+                                            <span id="out-precio" class="fw-bold fs-5 text-white">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-minimalista p-4 mb-4 border-start border-secondary border-4">                              
+                        <h5 class="fw-bold mb-3">Historial General de Bingos</h5>
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="search-bingos" class="form-control bg-transparent border-start-0" placeholder="Buscar bingo por título..." onkeyup="filterTable('search-bingos', 'table-bingos')">
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle table-sm" id="table-bingos">
+                                <thead>
+                                    <tr class="text-muted">
+                                        <th>Título</th>
+                                        <th>Modalidad</th>
+                                        <th>Cartón</th>
+                                        <th>Premio Pozo</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for b in bingos %}
+                                    <tr>
+                                        <td class="fw-bold text-body">{{ b.titulobingo }}</td>
+                                        <td>{{ b.tipobingo }}</td>
+                                        <td>${{ b.preciocarton }}</td>
+                                        <td class="text-success fw-bold">${{ b.premiomayor }}</td>
+                                        <td><span class="badge bg-body-secondary text-body border">{{ b.estadobingo }}</span></td>
+                                        <td class="text-end">
+                                            <a href="{% url 'reporte_liquidacion_bingo' b.idbingo %}" class="btn btn-sm btn-outline-success border-0 p-1 px-2" data-bs-toggle="tooltip" title="Exportar Liquidación Contable">
+                                                <i class="fas fa-file-excel"></i>
+                                            </a>
+    
+                                            <button class="btn btn-sm btn-outline-primary border-0 p-1 px-2" data-bs-toggle="modal" data-bs-target="#modalEditarBingo{{ b.idbingo }}" title="Editar bingo" aria-label="Editar bingo">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar este Bingo y TODAS las rondas asignadas a él?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="eliminar_bingo">
+                                                <input type="hidden" name="id_bingo" value="{{ b.idbingo }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1 px-2" title="Eliminar bingo" aria-label="Eliminar bingo"><i class="fas fa-trash-alt"></i></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-7">
+                            <div class="card-minimalista p-4 h-100 border-start border-success border-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="fw-bold text-secondary mb-0">Rondas de Juego Activas (`PartidaBingo`)</h6>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaPartida" title="Crear nueva ronda" aria-label="Crear nueva ronda">
+                                        <i class="fas fa-plus"></i> Nueva Ronda
+                                    </button>
+                                </div>
+                                
+                                <!-- NUEVO FILTRO INTERACTIVO (Sustituye al select) -->
+                                <div class="mb-3 dropdown">
+                                    <button class="btn btn-sm bg-body-tertiary text-body fw-bold border w-100 text-start d-flex justify-content-between align-items-center" type="button" id="dropdownRondasBingo" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span id="texto-filtro-bingo">🌟 Mostrar Todas las Rondas</span>
+                                        <i class="fas fa-chevron-down text-muted"></i>
+                                    </button>
+                                    <ul class="dropdown-menu w-100 p-2 shadow" aria-labelledby="dropdownRondasBingo" style="border-radius: 8px;">
+                                        <li class="px-2 pb-2">
+                                            <input type="text" class="form-control form-control-sm border-primary" id="buscador-bingos-dropdown" placeholder="Buscar bingo..." onkeyup="filtrarDropdownBingos()" onclick="event.stopPropagation();">
+                                        </li>
+                                        <li>
+                                            <div class="opciones-scroll">
+                                                <a class="dropdown-item fw-bold rounded" style="cursor: pointer;" onclick="seleccionarFiltroBingo('ALL', '🌟 Mostrar Todas las Rondas')">🌟 Mostrar Todas las Rondas</a>
+                                                <hr class="dropdown-divider">
+                                                {% for b in bingos %}
+                                                    <a class="dropdown-item rounded" style="cursor: pointer;" onclick="seleccionarFiltroBingo('{{ b.titulobingo|lower|escapejs }}', '{{ b.titulobingo|escapejs }}')">{{ b.titulobingo }}</a>
+                                                {% endfor %}
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <!-- FIN DEL NUEVO FILTRO -->
+
+                                <div class="table-responsive animate__animated animate__fadeInDown">
+                                    <table class="table table-sm align-middle" id="table-rondas" style="font-size:0.85rem;">
+                                        <thead>
+                                            <tr class="text-muted">
+                                                <th>Ronda</th>
+                                                <th>Premio</th>
+                                                <th>Estado</th>
+                                                <th>Última Bola</th>
+                                                <th class="text-end">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for pt in partidas %}
+                                            <tr data-bingo-name="{{ pt.idbingo.titulobingo|lower }}">
+                                                <td class="fw-semibold">{{ pt.nombreronda }} <br><span class="text-muted" style="font-size: 0.65rem;">({{ pt.idbingo.titulobingo }})</span></td>
+                                                
+                                                <td>
+                                                    {% if pt.premiomaterial == '[POZO_MAYOR]' %}
+                                                        <span class="badge bg-warning text-dark fw-black px-2 shadow-sm animate__animated animate__pulse animate__infinite">
+                                                            <i class="fas fa-crown"></i> POZO MAYOR: ${{ pt.idbingo.premiomayor }}
+                                                        </span>
+                                                    {% elif pt.valorpremio and pt.valorpremio > 0 %}
+                                                        <span class="text-primary fw-bold">${{ pt.valorpremio }}</span>
+                                                    {% elif pt.premiomaterial and pt.premiomaterial != 'Ninguno' %}
+                                                        <span class="text-warning fw-bold"><i class="fas fa-gift me-1"></i> Físico</span>
+                                                        <div class="small text-muted text-truncate" style="font-size: 0.75rem; max-width: 150px;" title="{{ pt.premiomaterial }}">{{ pt.premiomaterial }}</div>
+                                                        
+                                                        {% if pt.estadopremiomaterial %}
+                                                            <div class="mt-1">
+                                                                <span class="badge {% if pt.estadopremiomaterial == 'Entregado' %}bg-success{% elif pt.estadopremiomaterial == 'Pendiente' %}bg-warning text-dark{% else %}bg-secondary{% endif %} shadow-sm" style="font-size: 0.65rem;">
+                                                                    <i class="fas {% if pt.estadopremiomaterial == 'Entregado' %}fa-check-circle{% else %}fa-clock{% endif %} me-1"></i>{{ pt.estadopremiomaterial }}
+                                                                </span>
+                                                            </div>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <span class="text-muted small">Sin premio</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td><span class="badge bg-body-secondary text-body border">{{ pt.estadopartida }}</span></td>
+                                                <td class="font-monospace text-center fw-bold bg-body-secondary rounded-circle text-body" style="width:30px; height:30px;">{{ pt.ultimabola }}</td>
+                                                <td class="text-end text-nowrap">
+                                                    
+                                                    {% if pt.premiomaterial and pt.premiomaterial != 'Ninguno' and pt.premiomaterial != '[POZO_MAYOR]' and pt.estadopremiomaterial == 'Pendiente' %}
+                                                    <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Confirmas que el premio físico ya fue entregado al ganador?');">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="entregar_premio_fisico">
+                                                        <input type="hidden" name="id_partida" value="{{ pt.idpartidabingo }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-warning border-0 p-1 px-2 me-1" data-bs-toggle="tooltip" title="Marcar Premio como Entregado">
+                                                            <i class="fas fa-box-open fs-6"></i>
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+
+                                                    <a href="{% url 'tablero_admin' pt.idpartidabingo %}" class="btn btn-sm btn-outline-success border-0 p-1 px-2 me-1" data-bs-toggle="tooltip" title="Panel de Control de esta Ronda">
+                                                        <i class="fas fa-gamepad fs-6"></i>
+                                                    </a>
+
+                                                    <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar esta ronda?');">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="eliminar_partida">
+                                                        <input type="hidden" name="id_partida" value="{{ pt.idpartidabingo }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1 px-2" title="Eliminar ronda" aria-label="Eliminar ronda"><i class="fas fa-trash-alt"></i></button>
+                                                    </form>
+                                                    
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="card-minimalista p-4 h-100 border-start border-warning border-4">
+                                <h6 class="fw-bold text-secondary mb-3">Catálogo de Premios Físicos (`Regalo`)</h6>
+                                <div class="list-group list-group-flush animate__animated animate__fadeInDown">
+                                    {% for r in regalos %}
+                                    <div class="list-group-item bg-transparent px-0 py-2 small d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="fw-bold text-body">{{ r.nombreregalo }}</div>
+                                            <span class="text-muted" style="font-size:0.75rem;">Valor: ${{ r.valorregalo }}</span>
+                                        </div>
+                                        <span class="badge bg-body-secondary text-body border">{{ r.estadoregalo }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="mod-cartones" role="tabpanel">
+                    <div class="row g-4 mb-4">
+                        
+                        <div class="col-xl-5">
+                            <div class="card-minimalista p-4 h-100 border-start border-indigo border-4">
+                                <h5 class="fw-bold mb-3"><i class="fas fa-industry me-2 text-indigo"></i> Fábrica Central (RNG)</h5>
+                                <p class="text-secondary small">El motor RNG asegura matemáticamente que ningún cartón de 75 bolas se repita, validando firmas únicas antes de la inyección a la base de datos.</p>
+                                
+                                <form method="post" action="{% url 'dashboard' %}" class="mt-4">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="generar_cartones">
+                                    <label class="form-label small fw-bold">Volumen de Producción (Cantidad)</label>
+                                    <div class="input-group mb-3">
+                                        <input type="number" name="cantidad_cartones" min="1" max="5000" class="form-control bg-transparent" placeholder="Ej: 500" required>
+                                        <button class="btn btn-indigo" type="submit"><i class="fas fa-cogs me-1"></i> Fabricar Lote</button>
+                                    </div>
+                                    <div class="form-text small text-muted"><i class="fas fa-exclamation-triangle text-warning"></i> Límite de seguridad: 5,000 cartones por lote.</div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-7">
+                            <div class="card-minimalista p-4 h-100 border-start border-info border-4">
+                                <h5 class="fw-bold mb-3">Inventario y Control (`Carton`)</h5>
+                                <p class="text-secondary small">Selecciona un cartón del catálogo para inspeccionar su estructura.</p>
+                                
+                                <div class="table-responsive animate__animated animate__fadeInDown">
+                                    <table class="table align-middle table-hover table-sm">
+                                        <thead>
+                                            <tr class="text-secondary small text-uppercase">
+                                                <th>Serial</th>
+                                                <th>Jerarquía</th>
+                                                <th>Victoria Est.</th>
+                                                <th class="text-end">Operación</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for ct in cartones %}
+                                            
+                                            {{ ct.matriznumeros|json_script:ct.codigocarton }}
+                                            
+                                            <tr onclick='cargarMatrizPrevia("{{ ct.codigocarton }}", "{{ ct.indicevictoria }}", "{{ ct.esmaestro }}")' style="cursor: pointer;">
+                                                <td class="font-monospace fw-bold text-indigo">{{ ct.codigocarton }}</td>
+                                                <td>{% if ct.esmaestro %}<span class="badge bg-dark text-white">Maestro</span>{% else %}<span class="badge bg-dark text-white">Estándar</span>{% endif %}</td>
+                                                <td>{{ ct.indicevictoria }}%</td>
+                                                <td class="text-end">
+                                                    <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas destruir este cartón de forma permanente?');">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="action" value="eliminar_carton">
+                                                        <input type="hidden" name="id_carton" value="{{ ct.idcarton }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1 px-2" title="Eliminar cartón" aria-label="Eliminar cartón"><i class="fas fa-trash-alt"></i></button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="card-minimalista p-4 text-center h-100 border-start border-secondary border-4">
+                                <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-th me-2"></i> Inspección Re-activa de Matriz</h6>
+                                <div class="mb-3">
+                                    <span class="fw-bold text-body d-block mb-1" id="matriz-serial">Serial: Ninguno Seleccionado</span>
+                                    <span class="small text-muted" id="matriz-info">Victoria Estimada: -- | Tipo: --</span>
+                                </div>
+                                
+                                <div class="d-inline-block p-3 bg-body-tertiary rounded border shadow-sm">
+                                    <div class="d-flex justify-content-center gap-1 font-monospace fw-bold text-white mb-2" style="font-size:0.9rem;">
+                                        <div class="bg-primary rounded p-1 text-center" style="width:40px;">B</div>
+                                        <div class="bg-primary rounded p-1 text-center" style="width:40px;">I</div>
+                                        <div class="bg-primary rounded p-1 text-center" style="width:40px;">N</div>
+                                        <div class="bg-primary rounded p-1 text-center" style="width:40px;">G</div>
+                                        <div class="bg-primary rounded p-1 text-center" style="width:40px;">O</div>
+                                    </div>
+                                    <div class="d-flex flex-column gap-1" id="grid-maqueta-carton">
+                                        <div class="text-muted small py-4 px-5">Haz clic en un renglón del catálogo para renderizar el mapeo de números en tiempo real.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-minimalista p-4 mb-4 border-start border-success border-4">
+                        <h5 class="fw-bold mb-3">Asignación por Rondas (`CartonPartidaBingo`)</h5>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle table-sm">
+                                <thead>
+                                    <tr class="text-muted">
+                                        <th>Código Cartón</th>
+                                        <th>Partida ID</th>
+                                        <th>Precio Pagado</th>
+                                        <th>Aciertos</th>
+                                        <th>Estado Flujo</th>
+                                        <th>Resultado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for cj in cartones_en_juego %}
+                                    <tr>
+                                        <td class="font-monospace fw-semibold text-primary">{{ cj.idcarton.codigocarton }}</td>
+                                        <td>Ronda ID: {{ cj.idpartida_id }}</td>
+                                        <td>${{ cj.preciopagado|default:"0.00" }}</td>
+                                        <td class="text-center fw-bold">{{ cj.cantidadaciertos }}</td>
+                                        <td><span class="badge bg-dark text-white">{{ cj.estadocarton }}</span></td>
+                                        <td>{% if cj.esganador %}<span class="badge bg-success text-white"><i class="fas fa-crown me-1"></i> Ganador</span>{% else %}<span class="text-muted small">No premiado</span>{% endif %}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="mod-sistema" role="tabpanel">
+                    
+                    <div class="card-minimalista p-4 mb-4 border-start border-primary border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0">Licencias e Infraestructura (`PlataformaJuego`)</h5>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaPlataforma">
+                                <i class="fas fa-plus"></i> Integrar Plataforma
+                            </button>
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>Plataforma</th>
+                                        <th>Enlace de Acceso</th>
+                                        <th>Estado Core</th>
+                                        <th class="text-end">Operaciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pf in plataformas %}
+                                    <tr>
+                                        <td class="fw-bold text-body">{{ pf.nombreplataforma }}</td>
+                                        <td class="font-monospace small text-primary">{{ pf.urlplataforma }}</td>
+                                        <td>
+                                            {% if pf.estadoplataforma %}
+                                                <span class="badge bg-success-subtle text-success"><i class="fas fa-signal me-1"></i> En Línea</span>
+                                            {% else %}
+                                                <span class="badge bg-danger-subtle text-danger">Inactivo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar esta plataforma?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="eliminar_plataforma">
+                                                <input type="hidden" name="id_plataforma" value="{{ pf.idplataformajuego }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger border-0 px-2 py-1" title="Eliminar plataforma" aria-label="Eliminar plataforma"><i class="fas fa-trash-alt"></i></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card-minimalista p-4 mb-4 border-start border-danger border-4">
+                        <h5 class="fw-bold mb-3">Consola de Conectividad (`SesionJuego`)</h5>
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="search-sesiones" class="form-control bg-transparent border-start-0" placeholder="Buscar por ID, IP o dispositivo..." onkeyup="filterTable('search-sesiones', 'table-sesiones')">
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle table-sm" id="table-sesiones" style="font-size:0.8rem;">
+                                <thead>
+                                    <tr class="text-muted">
+                                        <th>Jugador ID</th>
+                                        <th>Dirección IP</th>
+                                        <th>Navegador / Dispositivo</th>
+                                        <th>Ping Latencia</th>
+                                        <th>Conexión</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ss in sesiones_monitoreo %}
+                                    <tr>
+                                        <td class="fw-bold text-indigo">ID: {{ ss.idjugador_id }}</td>
+                                        <td class="font-monospace">{{ ss.ipconexion|default:"127.0.0.1" }}</td>
+                                        <td><span class="small text-muted">{{ ss.navegadorweb|truncatechars:20 }} ({{ ss.dispositivoconexion|default:"PC" }})</span></td>
+                                        <td class="font-monospace"><span class="fw-bold text-success">{{ ss.latenciaping|default:"0" }} ms</span></td>
+                                        <td><span class="badge bg-success">{{ ss.estadosesion }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card-minimalista p-4 mb-4 border-start border-warning border-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold mb-0"><i class="fas fa-coins me-2 text-warning"></i> Economía y Divisas (`UnidadMonetaria`)</h5>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaMoneda" title="Crear nueva moneda" aria-label="Crear nueva moneda">
+                                <i class="fas fa-plus"></i> Nueva Divisa
+                            </button>
+                        </div>
+                        <div class="table-responsive animate__animated animate__fadeInDown">
+                            <table class="table align-middle table-sm">
+                                <thead>
+                                    <tr class="text-secondary small text-uppercase">
+                                        <th>Símbolo</th>
+                                        <th>Nombre</th>
+                                        <th>Tipo</th>
+                                        <th>Tasa Conv.</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in todas_monedas %}
+                                    <tr>
+                                        <td class="fs-5">{{ m.simbolomoneda }}</td>
+                                        <td class="fw-bold text-body">{{ m.nombremoneda }}</td>
+                                        <td><span class="badge bg-secondary text-white">{{ m.tipomoneda }}</span></td>
+                                        <td class="font-monospace text-muted">{{ m.tasaconversionmoneda }}</td>
+                                        <td>
+                                            {% if m.estadomoneda %}
+                                                <span class="badge bg-success-subtle text-success">Activa</span>
+                                            {% else %}
+                                                <span class="badge bg-danger-subtle text-danger">Inactiva</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-primary border-0 p-1 px-2" data-bs-toggle="modal" data-bs-target="#modalEditarMoneda{{ m.idunidadmonetaria }}" title="Editar moneda" aria-label="Editar moneda">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form method="post" action="{% url 'dashboard' %}" class="d-inline" onsubmit="return confirm('¿Seguro que deseas eliminar esta divisa? (Si hay bingos usándola, dará error).');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="eliminar_moneda">
+                                                <input type="hidden" name="id_moneda" value="{{ m.idunidadmonetaria }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger border-0 px-2 py-1" title="Eliminar moneda" aria-label="Eliminar moneda"><i class="fas fa-trash-alt"></i></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-minimalista p-4 mb-4 border-start border-dark border-4">
+                        <h5 class="fw-bold mb-4"><i class="fas fa-globe me-2 text-primary"></i> Configuración del Sitio Web (Página de Inicio)</h5>
+                        <form method="post" action="{% url 'dashboard' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="editar_configuracion">
+                            <div class="row g-4">
+                                <div class="col-12">
+                                    <label for="titulo-sobre-nosotros" class="form-label small fw-bold">Título de la sección "Sobre Nosotros"</label>
+                                    <input type="text" id="titulo-sobre-nosotros" name="titulosobrenosotros" class="form-control bg-transparent" value="{{ config_web.titulosobrenosotros|default:'¿Qué es CoopBingo?' }}" required>
+                                </div>
+                                <div class="col-12">
+                                    <label for="descripcion-sobre-nosotros" class="form-label small fw-bold">Texto Descriptivo Principal</label>
+                                    <textarea id="descripcion-sobre-nosotros" name="descripcionsobrenosotros" class="form-control bg-transparent" rows="5" required>{{ config_web.descripcionsobrenosotros|default:'' }}</textarea>
+                                </div>
+                                <div class="col-12">
+                                    <label for="imagen-promocional" class="form-label small fw-bold">Imagen Promocional (Se muestra junto al texto)</label>
+                                    {% if config_web.imagenpromocional %}
+                                        <div class="mb-2 small text-success"><i class="fas fa-check-circle me-1"></i> Imagen actual detectada. Sube una nueva si deseas reemplazarla.</div>
+                                    {% endif %}
+                                    <input type="file" id="imagen-promocional" name="imagenpromocional" class="form-control bg-transparent" accept="image/*">
+                                </div>
+                                <div class="col-12 mt-4 border-top pt-3">
+                                    <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-address-book me-2"></i> Contacto y Redes Sociales</h6>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold"><i class="fab fa-whatsapp text-success me-1"></i> WhatsApp</label>
+                                    <input type="text" name="numerowhatsapp" class="form-control bg-transparent" value="{{ config_web.numerowhatsapp|default:'' }}" placeholder="+593987654321">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold"><i class="fab fa-instagram text-danger me-1"></i> Instagram URL</label>
+                                    <input type="url" name="enlaceinstagram" class="form-control bg-transparent" value="{{ config_web.enlaceinstagram|default:'' }}" placeholder="https://instagram.com/coopbingo">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold"><i class="fab fa-facebook text-primary me-1"></i> Facebook URL</label>
+                                    <input type="url" name="enlacefacebook" class="form-control bg-transparent" value="{{ config_web.enlacefacebook|default:'' }}" placeholder="https://facebook.com/coopbingo">
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-indigo shadow-sm"><i class="fas fa-save me-2"></i> Guardar Cambios en la Web</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNuevaPartida" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Crear Nueva Ronda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear_partida">
+                <div class="modal-body">
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Evento Matriz (Bingo Asociado)</label>
+                        <select name="idbingo" id="select_bingo_partida" class="form-select bg-transparent" required>
+                            {% for b in bingos %}
+                                <option value="{{ b.idbingo }}">
+                                    {{ b.titulobingo }} (Moneda: {{ b.idunidadmonetaria.nombreunidadmonetaria|default:"Estándar" }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Nombre de la Ronda</label>
+                            <input type="text" name="nombreronda" class="form-control bg-transparent" placeholder="Ej: Ronda 1 - Apagón" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-danger">Modalidad (Regla de Victoria)</label>
+                            <select name="modalidad_victoria" class="form-select animate__animated animate__fadeInDown border-danger" required>
+                                <option value="Tabla Llena">Tabla Llena (Cartón Completo)</option>
+                                <option value="Las Cuatro Esquinas">Las Cuatro Esquinas</option>
+                                <option value="Linea Vertical">Línea Vertical (Cualquiera)</option>
+                                <option value="En Diagonal">En Diagonal (Cualquiera)</option>
+                                <option value="Forma de X">Forma de X (Cruzar Diagonales)</option>
+                                <option value="Forma de Cruz">Forma de Cruz (+)</option>
+                                <option value="Marco de Foto">Marco de Foto (Bordes)</option>
+                                <option value="Forma de L">Forma de L</option>
+                                <option value="Forma de C">Forma de C</option>
+                                <option value="Forma de T">Forma de T</option>
+                                <option value="Forma de U">Forma de U</option>
+                                <option value="Forma de H">Forma de H</option>
+                                <option value="Forma de Z">Forma de Z</option>
+                                <option value="Forma de Flecha">Forma de Flecha (Punta Arriba)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 border-top pt-3">
+                        <div class="form-check form-switch mb-3 bg-warning bg-opacity-10 p-3 rounded border border-warning border-opacity-50">
+                            <input class="form-check-input ms-1 me-3 shadow-sm border-warning" type="checkbox" name="es_pozo_mayor" id="switch_pozo_mayor" onchange="togglePozoMayor()" style="width: 2.5rem; height: 1.25rem;">
+                            <label class="form-check-label fw-bold text-body fs-6 ms-2" for="switch_pozo_mayor">
+                                <i class="fas fa-crown text-warning me-1"></i> Jugar el POZO MAYOR en esta ronda
+                            </label>
+                            <div class="small text-muted mt-2 ps-1" id="msg_pozo_mayor">
+                                El ganador se llevará automáticamente los miles de dólares del premio principal del Bingo.
+                            </div>
+                        </div>
+
+                        <label class="form-label small fw-bold text-success" id="lbl_naturaleza_premio">Naturaleza del Premio (Ronda Normal)</label>
+                        <select id="select_tipo_premio" class="form-select bg-transparent" onchange="togglePremioRonda()">
+                            <option value="dinero">Dinero o Moneda Virtual</option>
+                            <option value="fisico">Premio Físico / Material</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-2" id="contenedor_premios_normales">
+                        <div class="col-12" id="div_premio_dinero">
+                            <label class="form-label small fw-bold">Monto del Premio Base</label>
+                            <input type="number" step="0.01" min="0" oninput="validity.valid||(value='');" name="valorpremio" id="input_valorpremio" class="form-control bg-transparent" required>
+                        </div>
+                        <div class="col-12" id="div_premio_fisico" style="display: none;">
+                            <label class="form-label small fw-bold">Descripción del Premio Físico</label>
+                            <input type="text" name="premiomaterial" id="input_premiomaterial" class="form-control bg-transparent" placeholder="Ej: Televisor 50 Pulgadas LG">
+                        </div>
+                    </div>
+                    
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Aperturar Ronda a la Tienda</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNuevoTipoSocio" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Nuevo Tipo de Socio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear_tiposocio">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nombre del Tipo</label>
+                        <input type="text" name="nombretiposocio" class="form-control bg-transparent" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Rol Interno</label>
+                        <input type="text" name="roltiposocio" class="form-control bg-transparent" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Descripción</label>
+                        <textarea name="descripciondetiposocio" class="form-control bg-transparent" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Guardar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNuevaPlataforma" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Integrar Plataforma Web</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear_plataforma">
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-12 mb-2">
+                            <label class="form-label small fw-bold">Nombre de Plataforma</label>
+                            <input type="text" name="nombreplataforma" class="form-control bg-transparent" required>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <label class="form-label small fw-bold">URL Base de Acceso</label>
+                            <input type="url" name="urlplataforma" class="form-control bg-transparent" required>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <label class="form-label small fw-bold">Descripción</label>
+                            <input type="text" name="descripcionplataforma" class="form-control bg-transparent">
+                        </div>
+                        <div class="col-12 mb-2">
+                            <label class="form-label small fw-bold">Contacto de Soporte</label>
+                            <input type="text" name="contactoplataforma" class="form-control bg-transparent">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small fw-bold">Fecha Adquisición</label>
+                            <input type="date" name="fechaadquisicionlicencia" class="form-control bg-transparent">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small fw-bold">Fecha Vencimiento</label>
+                            <input type="date" name="fechavencimientolicencia" class="form-control bg-transparent">
+                        </div>
+                        <div class="col-12 mb-2">
+                            <label class="form-label small fw-bold">Logo de Plataforma (Opcional)</label>
+                            <input type="file" name="logoplataforma" class="form-control bg-transparent" accept="image/*">
+                        </div>
+                        <div class="col-12 mt-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="estadoplataforma" id="estadoPlat" checked>
+                                <label class="form-check-label small fw-bold" for="estadoPlat">Estado Activo (En Línea)</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Conectar API</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for b in bingos %}
+<div class="modal fade text-start" id="modalEditarBingo{{ b.idbingo }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> 
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Editar Jornada de Bingo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="editar_bingo">
+                <input type="hidden" name="id_bingo" value="{{ b.idbingo }}">
+                <div class="modal-body text-start">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Título</label>
+                            <input type="text" name="titulobingo" class="form-control bg-transparent" value="{{ b.titulobingo }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Costo del Cartón</label>
+                            <input type="number" step="0.01" name="preciocarton" class="form-control bg-transparent" value="{{ b.preciocarton }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Premio Mayor</label>
+                            <input type="number" step="0.01" name="premiomayor" class="form-control bg-transparent" value="{{ b.premiomayor }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Detalle Premio Principal</label>
+                            <input type="text" name="descripcionpremiomayor" class="form-control bg-transparent" value="{{ b.descripcionpremiomayor }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Fecha y Hora</label>
+                            <input type="datetime-local" name="fechaprogramadabingo" class="form-control bg-transparent" value="{{ b.fechaprogramadabingo|date:'Y-m-d\TH:i' }}">
+                            <div class="form-text small">Dejar igual si no cambia</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Estado</label>
+                            <select name="estadobingo" class="form-select bg-transparent">
+                                <option value="Programado" {% if b.estadobingo == 'Programado' %}selected{% endif %}>Programado</option>
+                                <option value="En Curso" {% if b.estadobingo == 'En Curso' %}selected{% endif %}>En Curso</option>
+                                <option value="Finalizado" {% if b.estadobingo == 'Finalizado' %}selected{% endif %}>Finalizado</option>
+                                <option value="Cancelado" {% if b.estadobingo == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Tipo</label>
+                            <select name="tipobingo" class="form-select bg-transparent">
+                                <option value="Virtual" {% if b.tipobingo == 'Virtual' %}selected{% endif %}>Virtual</option>
+                                <option value="Presencial" {% if b.tipobingo == 'Presencial' %}selected{% endif %}>Presencial</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Moneda / Divisa</label>
+                            <select name="idunidadmonetaria" class="form-select bg-transparent" required>
+                                {% for u in unidades_monetarias %}
+                                    <option value="{{ u.idunidadmonetaria }}" {% if b.idunidadmonetaria.idunidadmonetaria == u.idunidadmonetaria %}selected{% endif %}>{{ u.nombremoneda }} ({{ u.simbolomoneda }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Lugar (Si es presencial)</label>
+                            <input type="text" name="lugarbingo" class="form-control bg-transparent" value="{{ b.lugarbingo|default:'' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Link (Si es virtual)</label>
+                            <input type="url" name="urlsesionbingo" class="form-control bg-transparent" value="{{ b.urlsesionbingo|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% for s in socios %}
+<div class="modal fade text-start" id="modalEditarSocio{{ s.idsocio }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Editar Perfil de Socio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="editar_socio">
+                <input type="hidden" name="id_socio" value="{{ s.idsocio }}">
+                <div class="modal-body text-start">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <h6 class="fw-bold text-primary mb-1 border-bottom pb-2">Datos Personales</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Nombres</label>
+                            <input type="text" name="nombres" class="form-control bg-transparent" value="{{ s.primernombresocio }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Apellidos</label>
+                            <input type="text" name="apellidos" class="form-control bg-transparent" value="{{ s.primerapellidosocio }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Cédula</label>
+                            <input type="text" name="cedula" class="form-control bg-transparent" value="{{ s.cisocio }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Teléfono</label>
+                            <input type="text" name="telefono" class="form-control bg-transparent" value="{{ s.telefonopersonalsocio }}" required>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-indigo">Clasificación (Tipo de Socio)</label>
+                            <select name="id_tipo_socio" class="form-select bg-transparent" required>
+                                {% for t in tipos_socio %}
+                                    <option value="{{ t.idtiposocio }}" {% if s.idtiposocio.idtiposocio == t.idtiposocio %}selected{% endif %}>
+                                        {{ t.nombretiposocio }} (Rol: {{ t.roltiposocio }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <h6 class="fw-bold text-danger mb-1 border-bottom pb-2"><i class="fas fa-shield-alt me-1"></i> Seguridad y Acceso</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Estado Operativo</label>
+                            <select name="estado" class="form-select bg-transparent">
+                                <option value="Activo" {% if s.estadosocio == 'Activo' %}selected{% endif %}>Activo (En línea)</option>
+                                <option value="Inactivo" {% if s.estadosocio == 'Inactivo' %}selected{% endif %}>Inactivo (Dar de baja)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Restablecer Contraseña</label>
+                            <input type="text" name="password_nueva" class="form-control bg-transparent" placeholder="Dejar en blanco para no cambiar">
+                            <div class="form-text mt-1" style="font-size: 0.75rem;">
+                                <a href="#" class="text-primary text-decoration-none" onclick="document.querySelector('#modalEditarSocio{{ s.idsocio }} input[name=password_nueva]').value='{{ s.cisocio }}'; return false;">
+                                    <i class="fas fa-magic me-1"></i> Usar cédula como clave
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% for j in jugadores %}
+<div class="modal fade text-start" id="modalEditarJugador{{ j.idjugador }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Editar Perfil de Jugador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="editar_jugador">
+                <input type="hidden" name="id_jugador" value="{{ j.idjugador }}">
+                <div class="modal-body text-start">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <h6 class="fw-bold text-primary mb-1 border-bottom pb-2">Datos del Jugador</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Alias Público</label>
+                            <input type="text" name="alias" class="form-control bg-transparent" value="{{ j.aliasjugador }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Cédula</label>
+                            <input type="text" name="cedula" class="form-control bg-transparent" value="{{ j.cedulaidentidadjugador|default:'' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Correo Electrónico</label>
+                            <input type="email" name="correo" class="form-control bg-transparent" value="{{ j.correojugador|default:'' }}">
+                        </div>
+                        <div class="col-12 mt-4">
+                            <h6 class="fw-bold text-danger mb-1 border-bottom pb-2"><i class="fas fa-shield-alt me-1"></i> Seguridad y Acceso</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Estado de Cuenta</label>
+                            <select name="estado" class="form-select bg-transparent">
+                                <option value="Activo" {% if j.estadocuentajugador == 'Activo' %}selected{% endif %}>Activo (En línea)</option>
+                                <option value="Suspendido" {% if j.estadocuentajugador == 'Suspendido' %}selected{% endif %}>Suspendido (Inactivo)</option>
+                                <option value="Moroso" {% if j.estadocuentajugador == 'Moroso' %}selected{% endif %}>Moroso (Bloqueado)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Restablecer Contraseña</label>
+                            <input type="text" name="password_nueva" class="form-control bg-transparent" placeholder="Dejar en blanco para no cambiar">
+                            <div class="form-text mt-1" style="font-size: 0.75rem;">
+                                <a href="#" class="text-primary text-decoration-none" onclick="document.querySelector('#modalEditarJugador{{ j.idjugador }} input[name=password_nueva]').value='{{ j.cedulaidentidadjugador }}'; return false;">
+                                    <i class="fas fa-magic me-1"></i> Usar cédula como clave
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<div class="modal fade" id="modalNuevaMoneda" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Crear Nueva Divisa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crear_moneda">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Nombre de la Moneda</label>
+                            <input type="text" name="nombremoneda" class="form-control bg-transparent" placeholder="Ej: Dólares, Gemas, Fichas" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Símbolo</label>
+                            <input type="text" name="simbolomoneda" class="form-control bg-transparent" placeholder="Ej: $ o 💎" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Naturaleza / Tipo</label>
+                            <select name="tipomoneda" class="form-select bg-transparent">
+                                <option value="Efectivo">Efectivo (Dinero Real)</option>
+                                <option value="Virtual">Virtual (Tokens/Puntos)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Tasa de Conversión ($)</label>
+                            <input type="number" step="0.01" name="tasaconversionmoneda" class="form-control bg-transparent" value="1.00" required>
+                            <div class="form-text small">¿A cuánto equivale 1 divisa en dólares?</div>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="estadomoneda" id="estadoNuevaMoneda" checked>
+                                <label class="form-check-label small fw-bold" for="estadoNuevaMoneda">Activa (Disponible para nuevos Bingos)</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Guardar Divisa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for m in todas_monedas %}
+<div class="modal fade" id="modalEditarMoneda{{ m.idunidadmonetaria }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-minimalista border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Editar Divisa: {{ m.nombremoneda }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="editar_moneda">
+                <input type="hidden" name="id_moneda" value="{{ m.idunidadmonetaria }}">
+                <div class="modal-body text-start">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label small fw-bold">Nombre de la Moneda</label>
+                            <input type="text" name="nombremoneda" class="form-control bg-transparent" value="{{ m.nombremoneda }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Símbolo</label>
+                            <input type="text" name="simbolomoneda" class="form-control bg-transparent" value="{{ m.simbolomoneda }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Naturaleza / Tipo</label>
+                            <select name="tipomoneda" class="form-select bg-transparent">
+                                <option value="Efectivo" {% if m.tipomoneda == 'Efectivo' %}selected{% endif %}>Efectivo (Dinero Real)</option>
+                                <option value="Virtual" {% if m.tipomoneda == 'Virtual' %}selected{% endif %}>Virtual (Tokens/Puntos)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Tasa de Conversión ($)</label>
+                            <input type="number" step="0.01" name="tasaconversionmoneda" class="form-control bg-transparent" value="{{ m.tasaconversionmoneda }}" required>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="estadomoneda" id="estadoEditaMoneda{{ m.idunidadmonetaria }}" {% if m.estadomoneda %}checked{% endif %}>
+                                <label class="form-check-label small fw-bold" for="estadoEditaMoneda{{ m.idunidadmonetaria }}">Activa</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 mt-3">
+                    <button type="button" class="btn bg-body-tertiary text-body border" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-indigo">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+    // ==========================================
+    // MAGIA 1: MEMORIA DE SCROLL Y PESTAÑAS
+    // ==========================================
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // A) Restaurar la pestaña activa guardada en memoria
+        let activeTabId = sessionStorage.getItem("activeTabDashboard");
+        if (activeTabId) {
+            let tabElement = document.querySelector('#v-pills-tab button[data-bs-target="' + activeTabId + '"]');
+            if (tabElement) {
+                // Instanciamos la pestaña con Bootstrap y la forzamos a mostrarse
+                let tab = new bootstrap.Tab(tabElement);
+                tab.show();
+            }
+        }
+
+        // B) Escuchar y guardar cada vez que el admin cambie de pestaña
+        let tabButtons = document.querySelectorAll('#v-pills-tab button[data-bs-toggle="pill"]');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('shown.bs.tab', function (e) {
+                sessionStorage.setItem("activeTabDashboard", e.target.getAttribute('data-bs-target'));
+            });
+        });
+
+        // C) Restaurar posición de scroll (con 50ms de retraso para darle tiempo a la pestaña de dibujarse)
+        setTimeout(() => {
+            if (sessionStorage.getItem("scrollPosition")) {
+                window.scrollTo(0, sessionStorage.getItem("scrollPosition"));
+            }
+        }, 50);
+        
+        // Tooltips de Bootstrap
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el); });
+
+        // Verificamos el estado inicial del Pozo Mayor en el modal de Rondas
+        verificarPozoMayor();
+    });
+
+    window.addEventListener("beforeunload", function() {
+        // Guardamos el scroll un milisegundo antes de que recargue
+        sessionStorage.setItem("scrollPosition", window.scrollY);
+    });
+
+    // ==========================================
+    // MAGIA 2: MOTOR DE BÚSQUEDA UNIVERSAL
+    // ==========================================
+    function filterTable(inputId, tableId) {
+        let input = document.getElementById(inputId).value.toLowerCase();
+        let table = document.getElementById(tableId);
+        let rows = table.getElementsByTagName("tr");
+        
+        for (let i = 1; i < rows.length; i++) {
+            let textData = "";
+            let cells = rows[i].getElementsByTagName("td");
+            
+            // Unimos todo el texto de las columnas, excepto los botones invisibles
+            for (let j = 0; j < cells.length; j++) {
+                textData += cells[j].textContent.toLowerCase() + " ";
+            }
+            
+            rows[i].style.display = textData.includes(input) ? "" : "none";
+        }
+    }
+
+    // ==========================================
+    // MAGIA 3: FILTRO DE RONDAS POR BINGO (DROPDOWN INTERACTIVO)
+    // ==========================================
+    function seleccionarFiltroBingo(bingoValue, bingoText) {
+        document.getElementById('texto-filtro-bingo').innerText = bingoText;
+        
+        let table = document.getElementById('table-rondas');
+        let rows = table.getElementsByTagName("tr");
+        
+        for (let i = 1; i < rows.length; i++) {
+            if (bingoValue === "ALL") {
+                rows[i].style.display = "";
+            } else {
+                let rowBingoName = rows[i].getAttribute('data-bingo-name');
+                rows[i].style.display = (rowBingoName === bingoValue) ? "" : "none";
+            }
+        }
+    }
+
+    function filtrarDropdownBingos() {
+        let input = document.getElementById("buscador-bingos-dropdown").value.toLowerCase();
+        let div = document.querySelector(".opciones-scroll");
+        let items = div.getElementsByTagName("li");
+        
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].querySelector("hr")) continue; // Ignorar el separador
+            
+            let textValue = items[i].textContent || items[i].innerText;
+            if (textValue.toLowerCase().indexOf(input) > -1) {
+                items[i].style.display = "";
+            } else {
+                items[i].style.display = "none";
+            }
+        }
+    }
+
+    // ==========================================
+    // MAGIA 4: LOGICA DEL PREMIO MAYOR
+    // ==========================================
+    // Django nos inyecta la lista de los IDs de los bingos que ya usaron su pozo mayor
+</script>
+<script type="application/json" id="bingos-con-pozo-data">{{ bingos_con_pozo|safe }}</script>
+<script>
+    const bingosConPozo = JSON.parse(document.getElementById('bingos-con-pozo-data').textContent);
+
+    function verificarPozoMayor() {
+        const selectBingo = document.getElementById('select_bingo_partida');
+        if (!selectBingo) return;
+        
+        const bingoId = parseInt(selectBingo.value);
+        const switchPozo = document.getElementById('switch_pozo_mayor');
+        const msgPozo = document.getElementById('msg_pozo_mayor');
+        
+        if (bingosConPozo.includes(bingoId)) {
+            switchPozo.checked = false;
+            switchPozo.disabled = true;
+            msgPozo.innerHTML = '<span class="text-danger fw-bold"><i class="fas fa-ban"></i> El Pozo Mayor ya fue asignado a otra ronda.</span>';
+            togglePozoMayor(); // Fuerza a ocultar el bloque si estaba marcado
+        } else {
+            switchPozo.disabled = false;
+            msgPozo.innerHTML = 'El ganador se llevará automáticamente los miles de dólares del premio principal del Bingo.';
+        }
+    }
+
+    // Escuchamos cuando cambias de Bingo en el select para bloquear/desbloquear el switch
+    document.getElementById('select_bingo_partida').addEventListener('change', verificarPozoMayor);
+
+    function togglePozoMayor() {
+        const isPozoChecked = document.getElementById('switch_pozo_mayor').checked;
+        const selectorPremio = document.getElementById('select_tipo_premio');
+        const lblPremio = document.getElementById('lbl_naturaleza_premio');
+        const contenedorPremios = document.getElementById('contenedor_premios_normales');
+        
+        const inputDinero = document.getElementById('input_valorpremio');
+        const inputFisico = document.getElementById('input_premiomaterial');
+
+        if (isPozoChecked) {
+            // Ocultamos todo lo relacionado al premio normal
+            selectorPremio.style.display = 'none';
+            lblPremio.style.display = 'none';
+            contenedorPremios.style.display = 'none';
+            
+            // Quitamos el 'required' para que el formulario no de error al guardar
+            inputDinero.required = false;
+            inputFisico.required = false;
+        } else {
+            // Mostramos todo de vuelta
+            selectorPremio.style.display = 'block';
+            lblPremio.style.display = 'block';
+            contenedorPremios.style.display = 'flex';
+            togglePremioRonda(); // Reactiva el 'required' dependiendo de si es Dinero o Físico
+        }
+    }
+
+    function togglePremioRonda() {
+        if (document.getElementById('switch_pozo_mayor').checked) return; // Si está el pozo, ignoramos esto
+
+        const tipo = document.getElementById('select_tipo_premio').value;
+        const divDinero = document.getElementById('div_premio_dinero');
+        const divFisico = document.getElementById('div_premio_fisico');
+        const inputDinero = document.getElementById('input_valorpremio');
+        const inputFisico = document.getElementById('input_premiomaterial');
+
+        if (tipo === 'dinero') {
+            divDinero.style.display = 'block';
+            divFisico.style.display = 'none';
+            inputDinero.required = true;
+            inputFisico.required = false;
+            inputFisico.value = ''; 
+        } else {
+            divDinero.style.display = 'none';
+            divFisico.style.display = 'block';
+            inputDinero.required = false;
+            inputFisico.required = true;
+            inputDinero.value = ''; 
+        }
+    }
+
+    // ==========================================
+    // LÓGICA DE INTERFAZ ANTERIOR (MANTENIDA)
+    // ==========================================
+    function toggleCamposLugar(tipo) {
+        if(tipo === 'Virtual') {
+            document.getElementById('div-sesion').style.display = 'block';
+            document.getElementById('div-lugar').style.display = 'none';
+        } else {
+            document.getElementById('div-sesion').style.display = 'none';
+            document.getElementById('div-lugar').style.display = 'block';
+        }
+        document.getElementById('out-tipo').innerText = tipo.toUpperCase();
+        actualizarLugarEspejo();
+        const selectMoneda = document.getElementById('in-moneda');
+        const opciones = selectMoneda.options;
+        let primeraOpcionValida = false;
+        
+        for (let i = 0; i < opciones.length; i++) {
+            let tipoMoneda = opciones[i].getAttribute('data-tipo');
+            
+            if (tipo === 'Presencial') {
+                if (tipoMoneda === 'Efectivo') {
+                    opciones[i].style.display = '';
+                    if (!primeraOpcionValida) { selectMoneda.selectedIndex = i; primeraOpcionValida = true; }
+                } else {
+                    opciones[i].style.display = 'none';
+                }
+            } else {
+                opciones[i].style.display = ''; 
+            }
+        }
+    }
+
+    function actualizarPreciosVisuales() {
+        let selectMoneda = document.getElementById('in-moneda');
+        let simbolo = '$';
+        if (selectMoneda && selectMoneda.selectedIndex >= 0) {
+            simbolo = selectMoneda.options[selectMoneda.selectedIndex].getAttribute('data-simbolo') || '$';
+        }
+        let valPrecio = document.getElementById('in-precio').value;
+        let valPremio = document.getElementById('in-premio').value;
+        document.getElementById('out-precio').innerText = valPrecio ? simbolo + parseFloat(valPrecio).toFixed(2) : simbolo + '0.00';
+        document.getElementById('out-premio').innerText = valPremio ? simbolo + parseFloat(valPremio).toFixed(2) : simbolo + '0.00';
+    }
+
+    const formFieldsTexto = ['titulo', 'desc'];
+    formFieldsTexto.forEach(id => {
+        document.getElementById(`in-${id}`).addEventListener('input', function(e) {
+            let val = e.target.value;
+            if(!val && id === 'titulo') val = 'Título Inicial del Evento';
+            if(!val && id === 'desc') val = 'Escribe en la descripción del formulario...';
+            document.getElementById(`out-${id}`).innerText = val;
+        });
+    });
+
+    document.getElementById('in-precio').addEventListener('input', actualizarPreciosVisuales);
+    document.getElementById('in-premio').addEventListener('input', actualizarPreciosVisuales);
+    document.getElementById('in-moneda').addEventListener('change', actualizarPreciosVisuales); 
+
+    function actualizarLugarEspejo() {
+        let tipo = document.getElementById('in-tipo').value;
+        let valLugar = document.getElementById('in-lugar').value;
+        let valSesion = document.getElementById('in-sesion').value;
+        
+        if (tipo === 'Virtual') {
+            document.getElementById('out-lugar').innerText = valSesion ? valSesion : "Enlace no definido";
+        } else {
+            document.getElementById('out-lugar').innerText = valLugar ? valLugar : "Ubicación no definida";
+        }
+    }
+
+    document.getElementById('in-lugar').addEventListener('input', actualizarLugarEspejo);
+    document.getElementById('in-sesion').addEventListener('input', actualizarLugarEspejo);
+    
+    document.getElementById('in-estado').addEventListener('change', function(e) {
+        document.getElementById('out-estado').innerText = e.target.value.toUpperCase();
+    });
+
+    function cargarMatrizPrevia(serial, victoria, esMaestro) {
+        document.getElementById('matriz-serial').innerText = `Serial Activo: ${serial}`;
+        document.getElementById('matriz-info').innerText = `Victoria Estimada: ${victoria}% | Tipo: ${esMaestro === 'True' ? 'Maestro' : 'Estándar'}`;
+        let matrizJson = JSON.parse(document.getElementById(serial).textContent);
+        let gridContainer = document.getElementById('grid-maqueta-carton');
+        gridContainer.innerHTML = ''; 
+
+        const columnas = ['B', 'I', 'N', 'G', 'O'];
+
+        for(let fila = 0; fila < 5; fila++) {
+            let lineDiv = document.createElement('div');
+            lineDiv.className = 'd-flex justify-content-center gap-1';
+            
+            for(let col = 0; col < 5; col++) {
+                let cell = document.createElement('div');
+                cell.className = 'border bg-body text-body font-monospace text-center rounded small d-flex align-items-center justify-content-center shadow-sm';
+                cell.style.width = '40px';
+                cell.style.height = '40px';
+                cell.style.fontSize = '0.85rem';
+                
+                let letra = columnas[col];
+                let numero = matrizJson[letra][fila];
+
+                if (numero === 'FREE') {
+                    cell.innerText = 'LIB';
+                    cell.className += ' bg-warning-subtle text-warning fw-bold border-warning';
+                } else {
+                    cell.innerText = numero;
+                    cell.className += ' fw-bold';
+                }
+                lineDiv.appendChild(cell);
+            }
+            gridContainer.appendChild(lineDiv);
+        }
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const canvas = document.getElementById('graficoRendimiento');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const selectorTiempo = document.getElementById('filtro-tiempo');
+        
+        let datosBackend = {};
+        try {
+            datosBackend = JSON.parse('{{ datos_graficos_json|safe }}');
+        } catch(e) {
+            console.error("No hay datos JSON");
+            return;
+        }
+        
+        const colorTexto = getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color') || '#6c757d';
+        
+        let miGrafico = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Socios', 'Jugadores', 'Ganancias ($)'],
+                datasets: [{
+                    label: 'Métricas',
+                    data: [0, 0, 0],
+                    backgroundColor: ['rgba(13, 110, 253, 0.85)', 'rgba(25, 135, 84, 0.85)', 'rgba(255, 193, 7, 0.85)'],
+                    borderRadius: 8,
+                    barPercentage: 0.5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { ticks: { color: colorTexto } },
+                    x: { ticks: { color: colorTexto } }
+                }
+            }
+        });
+
+        function actualizarGrafico(rango) {
+            if(!datosBackend[rango]) return;
+            miGrafico.data.datasets[0].data = [datosBackend[rango].socios, datosBackend[rango].jugadores, datosBackend[rango].ganancias];
+            miGrafico.update();
+        }
+
+        selectorTiempo.addEventListener('change', function() { actualizarGrafico(this.value); });
+        actualizarGrafico(selectorTiempo.value);
+    });
+</script>
+{% endblock %}

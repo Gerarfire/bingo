@@ -1,0 +1,146 @@
+{% extends 'comunes/base.html' %}
+{% load static %} {% block title %}Verificación en Curso - CoopBingo{% endblock %}
+
+
+
+{% block content %}
+<div class="container py-5 text-center" style="max-width: 650px;">
+    
+    <div id="pantalla-espera" class="card-minimalista p-5 shadow-lg border-top border-warning border-4 bg-body">
+        
+        <div class="mb-4 position-relative d-inline-block">
+            <div class="spinner-border text-warning" role="status" style="width: 5rem; height: 5rem; border-width: 0.4rem;">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <div class="position-absolute top-50 start-50 translate-middle text-warning">
+                <i class="fas fa-bell fs-4 animate__animated animate__swing animate__infinite"></i>
+            </div>
+        </div>
+
+
+
+        <h3 class="fw-block text-body fw-bold mb-2">¡BINGO RECLAMADO!</h3>
+        <p class="text-secondary px-3">El juego ha sido pausado momentáneamente. El administrador se encuentra auditando los códigos de los cartones recibidos en la mesa de control.</p>
+        
+        <div class="bg-body-tertiary p-3 rounded border text-start my-4">
+            <div class="d-flex justify-content-between small text-body mb-1">
+                <span>Ronda Activa:</span>
+                <span class="fw-bold text-body">{{ partida.nombreronda }}</span>
+            </div>
+            <div class="d-flex justify-content-between small text-body">
+                <span>Estado de Auditoría:</span>
+                <span id="txt-estado-flujo" class="badge bg-danger animate__animated animate__flash animate__infinite">Verificando Cartones</span>
+            </div>
+        </div>
+
+
+
+        <p class="text-body small mb-0"><i class="fas fa-sync fa-spin me-2"></i>Tu pantalla se actualizará automáticamente en cuanto se valide el resultado.</p>
+    </div>
+
+
+
+    <div id="pantalla-ganador" class="card-minimalista p-5 shadow-lg border-0 bg-dark text-white text-center" style="display: none; background: radial-gradient(circle, #2c3e50 0%, #0f172a 100%);">
+        <div class="mb-3">
+            <i class="fas fa-crown text-warning display-3 animate__animated animate__bounceInDown"></i>
+        </div>
+        <h2 class="fw-bold text-warning mb-1">Tenemos un Ganador</h2>
+        <p class="text-white-50 small mb-4">La ronda ha finalizado de forma oficial</p>
+        
+        <div class="bg-white bg-opacity-10 rounded p-4 mb-4 border border-warning border-opacity-20">
+            <span class="text-white-50 text-uppercase tracking-wider small d-block mb-1">Campeón de la Ronda</span>
+            <h1 id="nombre-ganador" class="fw-black text-white font-monospace mb-0">--</h1>
+        </div>
+
+
+
+        <p class="text-muted px-4 small mb-4">Los fondos y premios físicos correspondientes se asignarán de manera inmutable en las respectivas cuentas de juego.</p>
+        
+        <a href="{% url 'inicio' %}" class="btn btn-warning btn-lg fw-bold px-5 text-dark shadow">
+            <i class="fas fa-home me-2"></i> Volver al Inicio
+        </a>
+    </div>
+
+
+
+</div>
+
+
+
+{% include 'componentes/panel_social.html' %}
+{% endblock %}
+
+
+
+{% block extra_js %}
+<script>
+    // 1. Inyectamos configuración (PEGADA AL OBJETO WINDOW PARA EVITAR BUGS EN EL CHAT)
+    window.BINGO_CONFIG = {
+        id_partida: "{{ partida.idpartidabingo }}",
+        id_bingo: "{{ partida.idbingo.idbingo }}",
+        mi_alias: "{{ jugador.aliasjugador }}" 
+    };
+</script>
+
+
+
+<script src="{% static 'js/bingo_socket.js' %}"></script>
+
+
+
+<script>
+    // Escuchamos el evento global
+    document.addEventListener('evento_partida', function(e) {
+        const datos = e.detail;
+        
+        if (datos.evento === 'estado_cambiado') {
+            if (datos.nuevo_estado === 'En Juego') {
+                window.location.href = "{% url 'tablero_tiempo_real' id_partida=partida.idpartidabingo %}";
+            }
+            else if (datos.nuevo_estado === 'Desempate') {
+                const badge = document.getElementById('txt-estado-flujo');
+                if (badge) {
+                    badge.className = "badge bg-warning text-dark animate__animated animate__pulse animate__infinite";
+                    badge.innerHTML = "<i class='fas fa-dice me-1'></i> Sorteando Bola de Desempate";
+                }
+            }
+            else if (datos.nuevo_estado === 'Finalizada') {
+                document.getElementById('pantalla-espera').style.display = 'none';
+                document.getElementById('nombre-ganador').innerText = datos.ganador ? datos.ganador : 'Jugador Oficial';
+                const contenedorGanador = document.getElementById('pantalla-ganador');
+                
+                if (contenedorGanador) {
+                    contenedorGanador.style.display = 'block';
+                    contenedorGanador.classList.add('animate__animated', 'animate__zoomIn');
+                    
+                    // Convertimos el botón en un indicador de carga inhabilitado
+                    const btnVolver = contenedorGanador.querySelector('a.btn');
+                    if (btnVolver) {
+                        btnVolver.classList.remove('btn-warning');
+                        btnVolver.classList.add('btn-secondary', 'disabled');
+                        
+                        // =====================================================
+                        // NUEVO: TEXTO DEL BOTÓN SEGÚN SI HAY MÁS RONDAS
+                        // =====================================================
+                        if (!datos.id_siguiente_partida) {
+                            btnVolver.innerHTML = '<i class="fas fa-flag-checkered me-2"></i> Evento Finalizado. Saliendo...';
+                        } else {
+                            btnVolver.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Moviendo a la siguiente ronda...';
+                        }
+                    }
+                }
+                
+                // REDIRECCIÓN INTELIGENTE DESPUÉS DE 5 SEGUNDOS
+                setTimeout(() => {
+                    if (datos.id_siguiente_partida) {
+                        let urlSiguiente = "{% url 'sala_espera' id_partida=999999 %}".replace('999999', datos.id_siguiente_partida);
+                        window.location.replace(urlSiguiente);
+                    } else {
+                        window.location.replace("{% url 'inicio' %}"); 
+                    }
+                }, 3000);
+            }
+        }
+    });
+</script> 
+{% endblock %}

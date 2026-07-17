@@ -1,0 +1,103 @@
+
+<button class="btn btn-indigo position-fixed top-50 end-0 translate-middle-y rounded-start shadow-lg" 
+        type="button" data-bs-toggle="offcanvas" data-bs-target="#panelSocial" 
+        style="z-index: 1040; padding: 15px 10px;">
+    <i class="fas fa-comments fs-5 mb-1 d-block"></i>
+    <span class="small fw-bold" style="writing-mode: vertical-rl; text-orientation: mixed;">SALA</span>
+</button>
+
+
+
+<div class="offcanvas offcanvas-end border-start-0 shadow" tabindex="-1" id="panelSocial" aria-labelledby="panelSocialLabel">
+    <div class="offcanvas-header bg-dark text-white">
+        <h5 class="offcanvas-title fw-bold" id="panelSocialLabel"><i class="fas fa-users me-2"></i> Comunidad</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    
+    <div class="offcanvas-body p-0 d-flex flex-column bg-body">
+        <ul class="nav nav-tabs nav-fill bg-body-tertiary" id="socialTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-bold text-body" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat-pane" type="button" role="tab">Chat en Vivo</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold text-body" id="jugadores-tab" data-bs-toggle="tab" data-bs-target="#jugadores-pane" type="button" role="tab">Jugadores</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content flex-grow-1 overflow-hidden" id="socialTabsContent">
+            
+            <div class="tab-pane fade show active h-100" id="chat-pane" role="tabpanel" tabindex="0">
+                <div class="h-100 d-flex flex-column">
+                    <div class="p-3 text-center border-bottom border-subtle bg-body-tertiary">
+                        <small class="text-body-secondary">¡Bienvenido al chat de la sala! Recuerda mantener el respeto.</small>
+                    </div>
+                    
+                    <div id="chat-mensajes" class="p-3 flex-grow-1 overflow-auto bg-body" style="height: 0;">
+                        {% for msg in mensajes_historial %}
+                            {% if msg.usuario == jugador.aliasjugador %}
+                                <div class="mb-3 d-flex flex-column align-items-end animate__animated animate__fadeIn">
+                                    <span class="small fw-bold text-primary mb-1 px-1" style="font-size: 0.70rem; letter-spacing: 0.5px;">Tú</span>
+                                    <div class="px-3 py-2 rounded-4 bg-primary text-white shadow-sm" style="max-width: 90%; word-break: break-word; font-size: 0.9rem; line-height: 1.4;">
+                                        {{ msg.mensaje }}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="mb-3 d-flex flex-column align-items-start animate__animated animate__fadeIn">
+                                    <span class="small fw-bold text-secondary mb-1 px-1" style="font-size: 0.70rem; letter-spacing: 0.5px;">{{ msg.usuario }}</span>
+                                    <div class="px-3 py-2 rounded-4 bg-light text-dark border shadow-sm" style="max-width: 90%; word-break: break-word; font-size: 0.9rem; line-height: 1.4;">
+                                        {{ msg.mensaje }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            const cajaChat = document.getElementById('chat-mensajes');
+                            if(cajaChat) cajaChat.scrollTop = cajaChat.scrollHeight;
+                        });
+                    </script>
+                    
+                    <div class="p-3 border-top border-subtle bg-body-tertiary">
+                        <div class="input-group">
+                            <input type="text" id="chat-input" class="form-control bg-body text-body border-secondary-subtle" placeholder="Escribe un mensaje..." autocomplete="off">
+                            <button class="btn btn-indigo" type="button" id="chat-btn-enviar" title="Enviar mensaje" aria-label="Enviar mensaje">
+                                <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade h-100" id="jugadores-pane" role="tabpanel" tabindex="0">
+                <div class="h-100 d-flex flex-column">
+                    <div class="p-2 text-center bg-body-tertiary border-bottom border-subtle">
+                        <span class="badge bg-success px-3 py-2 rounded-pill fs-6"><span class="contador-dinamico">{{ jugadores_en_sala.count|default:"0" }}</span> Conectados</span>
+                    </div>
+                    
+                    <div class="p-0 flex-grow-1 overflow-auto bg-body">
+                        <div class="list-group list-group-flush lista-jugadores-dinamica" role="list">
+                            {% for j in jugadores_en_sala %}
+                            <div class="list-group-item bg-transparent text-body d-flex align-items-center py-3" role="listitem" data-alias="{{ j.aliasjugador }}">
+                                <div class="text-white rounded-circle d-flex justify-content-center align-items-center me-3"
+                                     style="width: 35px; height: 35px; font-weight: bold; background-color: #4F46E5;">
+                                    {{ j.aliasjugador|slice:":1"|upper }}
+                                </div>
+                                <span class="fw-bold">{{ j.aliasjugador }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="list-group-item bg-transparent border-0 text-center text-body-secondary py-5" role="listitem">
+                                <i class="fas fa-ghost fs-1 mb-3 text-muted d-block" aria-hidden="true"></i>
+                                <span>No hay rivales en la sala aún.</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+

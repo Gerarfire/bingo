@@ -1,0 +1,478 @@
+{% extends 'comunes/base.html' %}
+{% block title %}Tienda de Cartones - CoopBingo{% endblock %}
+
+
+
+{% block content %}
+<style>
+    /* Estilos responsivos para las matrices 5x5 dinámicas */
+    /* FIX: Implementación de minmax(0, 1fr) para cortar el desbordamiento en el catálogo de ventas */
+    .mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; width: 100%; max-width: 130px; margin: 0 auto; }
+    
+    /* FIX: Se añade min-width y overflow oculto tanto a las celdas normales como a las del carrito (tiny) */
+    .mini-cell { font-size: clamp(0.6rem, 2vw, 0.75rem); border: 1px solid var(--bs-border-color); text-align: center; background-color: var(--bs-body-bg); color: var(--bs-body-color); padding: 2px 0; aspect-ratio: 1; display: flex; justify-content: center; align-items: center; border-radius: 2px; min-width: 0; overflow: hidden;}
+    .mini-cell-tiny { font-size: 0.5rem; border: 1px solid var(--bs-border-color); text-align: center; background-color: var(--bs-body-bg); color: var(--bs-body-color); aspect-ratio: 1; display: flex; justify-content: center; align-items: center; border-radius: 2px; min-width: 0; overflow: hidden;}
+    
+    .free { background-color: #ffc107 !important; font-weight: bold; color: #000 !important; }
+    .catalog-item.bg-primary-subtle .mini-cell { border-color: #0d6efd; opacity: 0.9; }
+    .cursor-pointer { cursor: pointer; }
+    .catalog-item { -webkit-user-select: none; user-select: none; transition: all 0.2s ease-in-out; }
+    .catalog-item:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    /* Estilos de la vitrina con scroll */
+    .vitrina-scroll {
+        max-height: 420px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 8px; /* Evita que el scroll pise las tarjetas */
+    }
+    /* Diseño estilizado de la barra de scroll */
+    .vitrina-scroll::-webkit-scrollbar { width: 6px; }
+    .vitrina-scroll::-webkit-scrollbar-track { background: var(--bs-secondary-bg); border-radius: 4px; }
+    .vitrina-scroll::-webkit-scrollbar-thumb { background: #adb5bd; border-radius: 4px; }
+    .vitrina-scroll::-webkit-scrollbar-thumb:hover { background: #6c757d; }
+</style>
+
+
+
+<div class="container py-5">
+    <div class="row g-4 justify-content-center">
+        <div class="col-12 col-xl-10">
+            
+            <div class="card-minimalista p-4 d-flex flex-column flex-md-row justify-content-between align-items-center bg-indigo animate__animated animate__fadeInDown border-0 shadow-sm mb-4">
+                <div class="d-flex align-items-center mb-3 mb-md-0">
+                    <div class="bg-white bg-opacity-25 rounded-circle d-flex justify-content-center align-items-center me-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-wallet fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-0 animate__animated animate__fadeInDown text-uppercase fw-bold">Saldo Disponible</h6>
+                        <h2 class="mb-0 fw-bold">${{ jugador.saldocreditojugador }}</h2>
+                    </div>
+                </div>
+                <div class="text-center text-md-end">
+                    <span class="d-block fw-bold fs-5">{{ jugador.aliasjugador }}</span>
+                    <span class="small animate__animated animate__fadeInDown">{{ jugador.cedulaidentidadjugador }}</span>
+                </div>
+            </div>
+
+
+
+            <h4 class="fw-bold mb-4"><i class="fas fa-store text-primary me-2"></i> Kiosko de Cartones</h4>
+
+
+
+            {% if bingos_data %}
+                <div class="row g-4">
+                    {% for item in bingos_data %}
+                    <div class="col-12">
+                        <div class="card-minimalista p-3 p-md-4 bingo-store" 
+                             data-bingoid="{{ item.bingo.idbingo }}" 
+                             data-price="{{ item.bingo.preciocarton }}" 
+                             data-comprados="{{ item.comprados }}">
+                            
+                            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center border-bottom pb-3 mb-3">
+                                <div class="mb-3 mb-lg-0">
+                                    <span class="badge {% if item.bingo.tipobingo == 'Virtual' %}bg-primary-subtle text-primary{% else %}bg-success-subtle text-success{% endif %} mb-2 border">{{ item.bingo.tipobingo|upper }}</span>
+                                    <h4 class="fw-bold mb-1">{{ item.bingo.titulobingo }}</h4>
+                                    <span class="small text-muted d-block d-md-inline mb-1 mb-md-0"><i class="far fa-calendar-alt me-1"></i> {{ item.bingo.fechaprogramadabingo|date:"d/m/Y H:i" }}</span>
+                                    <span class="small text-muted d-none d-md-inline mx-2">|</span>
+                                    <span class="small text-muted d-block d-md-inline">Premio: <span class="text-success fw-bold">${{ item.bingo.premiomayor }}</span></span>
+                                </div>
+                                <div class="text-start text-lg-end bg-body-tertiary bg-lg-transparent p-2 p-lg-0 rounded">
+                                    <span class="small text-body-secondary fw-bold d-block">Precio Unitario</span>
+                                    <span class="fs-4 fw-bold text-body">${{ item.bingo.preciocarton }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <span class="badge bg-success-subtle text-success border text-wrap w-100 text-start lh-base p-2" style="font-size: 0.85rem;"><i class="fas fa-box me-1"></i> Ya posees {{ item.comprados }} cartones oficiales de este evento</span>
+                            </div>
+
+
+
+                            <ul class="nav nav-pills flex-column flex-sm-row mb-3 border-bottom pb-3 gap-2" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-medium w-100 px-4" id="tab-gen-trigger-{{ item.bingo.idbingo }}" data-bs-toggle="pill" data-bs-target="#tab-gen-{{ item.bingo.idbingo }}" type="button" role="tab" aria-selected="true"><i class="fas fa-dice me-2"></i> Generador RNG</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-medium w-100 px-4" id="tab-cat-trigger-{{ item.bingo.idbingo }}" data-bs-toggle="pill" data-bs-target="#tab-cat-{{ item.bingo.idbingo }}" type="button" role="tab" aria-selected="false"><i class="fas fa-book-open me-2"></i> Catálogo Oficial</button>
+                                </li>
+                            </ul>
+
+
+
+                            <div class="tab-content mb-4">
+                                <div class="tab-pane fade show active" id="tab-gen-{{ item.bingo.idbingo }}" role="tabpanel">
+                                    <div class="bg-body-tertiary border rounded-4 p-3 p-md-4 text-center position-relative">
+                                        <h5 class="fw-bold mb-2">Encuentra tus números de la suerte</h5>
+                                        <p class="text-muted small mb-4">Se te asignará un código único temporal (MYT). Presiona Girar hasta encontrar tu cartón.</p>
+                                        
+                                        <div class="d-inline-block p-3 bg-body rounded border shadow-sm mb-4 w-100" style="max-width: 250px;">
+                                            <div class="d-flex justify-content-between gap-1 font-monospace fw-bold text-white mb-2" style="font-size:0.9rem; max-width: 130px; margin: 0 auto;">
+                                                <div class="bg-primary rounded px-1 flex-fill text-center">B</div>
+                                                <div class="bg-primary rounded px-1 flex-fill text-center">I</div>
+                                                <div class="bg-primary rounded px-1 flex-fill text-center">N</div>
+                                                <div class="bg-primary rounded px-1 flex-fill text-center">G</div>
+                                                <div class="bg-primary rounded px-1 flex-fill text-center">O</div>
+                                            </div>
+                                            <div id="matrix-{{ item.bingo.idbingo }}"></div>
+                                            <div id="code-{{ item.bingo.idbingo }}" class="mt-3 font-monospace fw-bold text-primary fs-6"></div>
+                                        </div>
+                                        
+                                        <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
+                                            <button type="button" class="btn btn-warning fw-bold text-dark px-4 py-2 btn-girar" data-bingoid="{{ item.bingo.idbingo }}"><i class="fas fa-sync-alt me-2"></i> Girar</button>
+                                            <button type="button" class="btn btn-success fw-bold px-4 py-2 btn-quedar" data-bingoid="{{ item.bingo.idbingo }}"><i class="fas fa-cart-plus me-2"></i> Agregar a Bandeja</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+
+                                <div class="tab-pane fade" id="tab-cat-{{ item.bingo.idbingo }}" role="tabpanel">
+                                    <div class="vitrina-scroll p-2 bg-body-tertiary border rounded">
+                                        <div class="row g-2 g-md-3">
+                                            {% for c in item.catalogo %}
+                                            <div class="col-6 col-sm-4 col-md-3">
+                                                <div class="card p-2 text-center catalog-item cursor-pointer border shadow-sm h-100 d-flex flex-column justify-content-between" 
+                                                     data-id="{{ c.idcarton }}" 
+                                                     data-codigo="{{ c.codigocarton }}"
+                                                     data-matriz="{{ c.matriznumeros }}"
+                                                     data-bingoid="{{ item.bingo.idbingo }}">
+                                                    <div class="catalog-grid-container mb-2 mt-1"></div>
+                                                    <div>
+                                                        <span class="font-monospace fw-bold text-body d-block text-truncate" style="font-size: 0.75rem;">{{ c.codigocarton }}</span>
+                                                        <span class="badge bg-body-secondary text-body border mt-1 w-100 check-badge">Disponible</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% empty %}
+                                            <div class="col-12 text-center py-5 text-muted small">
+                                                <i class="fas fa-box-open fs-3 mb-2 d-block"></i>
+                                                El catálogo maestro se ha agotado. Usa el generador RNG.
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+
+
+                            <div class="bg-dark text-white border border-secondary rounded-4 p-3 p-md-4">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                    <h6 class="fw-bold m-0"><i class="fas fa-shopping-basket text-primary me-2"></i> Tu Selección:</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearCart('{{ item.bingo.idbingo }}')">Limpiar Todo</button>
+                                </div>
+                                
+                                <ul id="cart-items-list-{{ item.bingo.idbingo }}" class="list-unstyled mb-3" style="max-height: 350px; overflow-y: auto; padding-right: 5px;">
+                                    </ul>
+                                
+                                <hr class="border-secondary">
+                                
+                                <form method="post" action="{% url 'venta_cartones' %}" id="form-{{ item.bingo.idbingo }}" class="form-checkout" data-bingoid="{{ item.bingo.idbingo }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="id_bingo" value="{{ item.bingo.idbingo }}">
+                                    <div id="cart-inputs-{{ item.bingo.idbingo }}"></div>
+                                    <input type="hidden" name="cartones_generados" id="json-generados-{{ item.bingo.idbingo }}" value="[]">
+
+
+
+                                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                                        <div class="d-flex flex-row flex-sm-column justify-content-between align-items-center align-items-sm-start">
+                                            <span class="small text-white-50 fw-bold">Cant: <span id="cart-count-{{ item.bingo.idbingo }}" class="text-white fs-6">0</span></span>
+                                            <span class="small text-white-50 fw-bold">Total: <span id="cart-total-{{ item.bingo.idbingo }}" class="text-success fs-4">$0.00</span></span>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm px-5 w-100 w-sm-auto" id="btn-pay-{{ item.bingo.idbingo }}" disabled>Pagar</button>
+                                    </div>
+                                </form>
+                            </div>
+
+
+
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-sad-tear fs-1 mb-3"></i>
+                    <h5>No existen grandes jornadas de bingo planificadas por el momento.</h5>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    const StoreData = {};
+
+
+
+    function parseMatriz(str) {
+        if (!str) return null;
+        try {
+            let fixedStr = str.replace(/'/g, '"');
+            return JSON.parse(fixedStr);
+        } catch(e) {
+            return null;
+        }
+    }
+
+
+
+    function renderMiniGrid(matriz, isTiny=false) {
+        if (!matriz) return '';
+        let sizeClass = isTiny ? 'mini-cell-tiny' : 'mini-cell';
+        let html = '<div class="mini-grid">';
+        const cols = ['B', 'I', 'N', 'G', 'O'];
+        for(let f = 0; f < 5; f++) {
+            for(let c of cols) {
+                let val = matriz[c][f];
+                let isFree = (val === 'FREE');
+                html += `<div class="${sizeClass} ${isFree ? 'free' : ''}">${isFree ? 'X' : val}</div>`;
+            }
+        }
+        return html + '</div>';
+    }
+
+
+
+    function initStore(bingoId, price, limitBase) {
+        StoreData[bingoId] = {
+            price: parseFloat(price),
+            selectedCatalogIds: new Set(),
+            generatedCards: [],
+            currentDraft: null
+        };
+        rollMatrix(bingoId);
+    }
+
+
+
+    function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    
+    function generateCol(min, max) {
+        let nums = new Set();
+        while(nums.size < 5) { nums.add(getRandomInt(min, max)); }
+        return Array.from(nums).sort((a,b) => a - b);
+    }
+
+
+
+    function rollMatrix(bingoId) {
+        let b = generateCol(1, 15);
+        let i = generateCol(16, 30);
+        let n = generateCol(31, 45); n[2] = "FREE";
+        let g = generateCol(46, 60);
+        let o = generateCol(61, 75);
+
+
+
+        let cod = "MYT-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        StoreData[bingoId].currentDraft = {
+            codigo: cod,
+            matriz: { 'B': b, 'I': i, 'N': n, 'G': g, 'O': o }
+        };
+
+
+
+        let cajaMatriz = document.getElementById(`matrix-${bingoId}`);
+        let cajaCodigo = document.getElementById(`code-${bingoId}`);
+        
+        if (cajaMatriz && cajaCodigo) {
+            cajaMatriz.innerHTML = renderMiniGrid(StoreData[bingoId].currentDraft.matriz);
+            cajaCodigo.innerText = cod;
+        }
+    }
+
+
+
+    function updateCartUI(bId) {
+        let store = StoreData[bId];
+        let list = document.getElementById(`cart-items-list-${bId}`);
+        let inputs = document.getElementById(`cart-inputs-${bId}`);
+        list.innerHTML = "";
+        inputs.innerHTML = "";
+        
+        store.selectedCatalogIds.forEach(id => {
+            let el = document.querySelector(`.catalog-item[data-id="${id}"]`);
+            let matriz = parseMatriz(el.dataset.matriz);
+            let codigo = el.dataset.codigo;
+            
+            list.innerHTML += `
+                <li class="d-flex justify-content-between align-items-center gap-2 mb-2 bg-body-tertiary text-body p-2 rounded border shadow-sm">
+                    <div class="flex-shrink-0" style="width: 75px;">${renderMiniGrid(matriz, true)}</div>
+                    <span class="fw-bold small text-break flex-grow-1 text-center">${codigo}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" onclick="removeFromCart(${bId}, 'cat', '${id}')"><i class="fas fa-times"></i></button>
+                </li>
+            `;
+            inputs.innerHTML += `<input type="hidden" name="cartones_catalogo" value="${id}">`;
+        });
+        
+        store.generatedCards.forEach((card, index) => {
+            list.innerHTML += `
+                <li class="d-flex justify-content-between align-items-center gap-2 mb-2 bg-body-tertiary text-body p-2 rounded border shadow-sm">
+                    <div class="flex-shrink-0" style="width: 75px;">${renderMiniGrid(card.matriz, true)}</div>
+                    <span class="fw-bold small text-break flex-grow-1 text-center text-primary">${card.codigo}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" onclick="removeFromCart(${bId}, 'gen', ${index})"><i class="fas fa-times"></i></button>
+                </li>
+            `;
+        });
+
+
+
+        let total = store.selectedCatalogIds.size + store.generatedCards.length;
+        document.getElementById(`cart-count-${bId}`).innerText = total;
+        document.getElementById(`cart-total-${bId}`).innerText = "$" + (total * store.price).toFixed(2);
+        
+        // FIX: Se quitó la barra de progreso limitante.
+        
+        document.getElementById(`btn-pay-${bId}`).disabled = (total === 0);
+        document.getElementById(`json-generados-${bId}`).value = JSON.stringify(store.generatedCards);
+    }
+
+
+
+    function removeFromCart(bId, type, idOrIndex) {
+        let store = StoreData[bId];
+        if (type === 'cat') {
+            store.selectedCatalogIds.delete(idOrIndex.toString());
+            let catItem = document.querySelector(`.catalog-item[data-bingoid="${bId}"][data-id="${idOrIndex}"]`);
+            if(catItem) {
+                catItem.classList.remove('bg-primary-subtle', 'border-primary');
+                let badge = catItem.querySelector('.check-badge');
+                badge.classList.replace('bg-primary', 'bg-body-secondary');
+                badge.classList.replace('text-white', 'text-body');
+                badge.innerText = 'Disponible';
+            }
+        } else {
+            store.generatedCards.splice(idOrIndex, 1);
+        }
+        updateCartUI(bId);
+    }
+
+
+
+    function clearCart(bId) {
+        let store = StoreData[bId];
+        store.selectedCatalogIds.forEach(id => {
+            let catItem = document.querySelector(`.catalog-item[data-bingoid="${bId}"][data-id="${id}"]`);
+            if(catItem) {
+                catItem.classList.remove('bg-primary-subtle', 'border-primary');
+                let badge = catItem.querySelector('.check-badge');
+                badge.classList.replace('bg-primary', 'bg-body-secondary');
+                badge.classList.replace('text-white', 'text-body');
+                badge.innerText = 'Disponible';
+            }
+        });
+        store.selectedCatalogIds.clear();
+        store.generatedCards = [];
+        updateCartUI(bId);
+    }
+
+
+
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll('.bingo-store').forEach(storeEl => {
+            let bId = storeEl.dataset.bingoid;
+            initStore(bId, storeEl.dataset.price, storeEl.dataset.comprados);
+            
+            storeEl.querySelectorAll('.catalog-item').forEach(item => {
+                let matriz = parseMatriz(item.dataset.matriz);
+                if (matriz) {
+                    let gridContainer = item.querySelector('.catalog-grid-container');
+                    gridContainer.innerHTML = renderMiniGrid(matriz);
+                }
+            });
+
+
+
+            const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+            const tiendaSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/tienda/${bId}/`);
+            
+            tiendaSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.evento === 'carton_vendido') {
+                    const cartonId = data.id_carton.toString();
+                    const cardEl = document.querySelector(`.catalog-item[data-bingoid="${bId}"][data-id="${cartonId}"]`);
+                    
+                    if (cardEl) {
+                        let store = StoreData[bId];
+                        if (store.selectedCatalogIds.has(cartonId)) {
+                            removeFromCart(bId, 'cat', cartonId);
+                            const alertHtml = `
+                            <div class="alert alert-warning alert-dismissible fade show shadow-sm animate__animated animate__shakeX" role="alert">
+                                <i class="fas fa-exclamation-triangle me-2"></i>¡Uf! Alguien más rápido acaba de comprar el cartón maestro <strong>${cardEl.dataset.codigo}</strong>. Se ha retirado de tu carrito.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>`;
+                            storeEl.insertAdjacentHTML('afterbegin', alertHtml);
+                        }
+                        
+                        cardEl.classList.add('animate__animated', 'animate__zoomOut', 'opacity-50');
+                        cardEl.style.pointerEvents = 'none';
+                        setTimeout(() => {
+                            let colWrapper = cardEl.closest('.col-6');
+                            if(colWrapper) colWrapper.remove();
+                        }, 500);
+                    }
+                }
+            };
+        });
+
+
+
+        // FIX: Botón de RNG Generador sin Límite
+        document.querySelectorAll('.btn-girar').forEach(btn => {
+            btn.addEventListener('click', function() { rollMatrix(this.dataset.bingoid); });
+        });
+
+
+
+        // FIX: Botón "Agregar a Bandeja" sin barreras lógicas
+        document.querySelectorAll('.btn-quedar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                let bId = this.dataset.bingoid;
+                let store = StoreData[bId];
+                // LÍMITE ELIMINADO
+                store.generatedCards.push(store.currentDraft);
+                rollMatrix(bId);
+                updateCartUI(bId);
+            });
+        });
+
+
+
+        // FIX: Clic en el Catálogo Oficial sin Límite
+        document.querySelectorAll('.catalog-item').forEach(item => {
+            item.addEventListener('click', function() {
+                let bId = this.dataset.bingoid;
+                let cId = this.dataset.id;
+                let store = StoreData[bId];
+                let badge = this.querySelector('.check-badge');
+
+
+
+                if (store.selectedCatalogIds.has(cId)) {
+                    removeFromCart(bId, 'cat', cId);
+                } else {
+                    // LÍMITE ELIMINADO
+                    store.selectedCatalogIds.add(cId);
+                    this.classList.add('bg-primary-subtle', 'border-primary');
+                    badge.classList.replace('bg-body-secondary', 'bg-primary');
+                    badge.classList.replace('text-body', 'text-white');
+                    badge.innerText = 'Seleccionado';
+                    updateCartUI(bId);
+                }
+            });
+        });
+        
+        document.querySelectorAll('.form-checkout').forEach(form => {
+            form.addEventListener('submit', function() {
+                this.querySelector('button[type="submit"]').disabled = true;
+            });
+        });
+    });
+</script>
+{% endblock %}

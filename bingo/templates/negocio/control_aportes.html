@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Finanzas - Bingo Solidario</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1200px; margin: 40px auto; padding: 20px; }
+        .card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f093fb; color: white; }
+        tr:hover { background: #f5f5f5; }
+        .btn { padding: 10px 20px; background: #f093fb; color: white; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; }
+        .btn:hover { background: #f5576c; }
+        a { color: #f093fb; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💰 Control de Finanzas</h1>
+        <p>Gestiona aportes, pagos y transacciones</p>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Resumen Financiero</h2>
+            <p>Aquí aparecerá el control de aportes semanales, finanzas y pagos.</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Socio</th>
+                        <th>Monto Aporte</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #999;">No hay aportes registrados</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>Acciones Rápidas</h3>
+            <button class="btn">+ Registrar Aporte</button>
+            <button class="btn">📊 Generar Reporte</button>
+            <button class="btn">📥 Descargar Excel</button>
+            <br><br>
+            <a href="{% url 'dashboard_admin' %}">← Volver al Panel Admin</a>
+        </div>
+    </div>
+</body>
+</html>

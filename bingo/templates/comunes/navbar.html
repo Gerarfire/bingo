@@ -1,0 +1,101 @@
+{% load static %}
+<nav class="navbar navbar-expand-lg border-bottom card-minimalista mb-4 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'inicio' %}" style="color: var(--color-primario);">
+            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                <i class="fas fa-dice-d20 text-white" style="font-size: 16px;"></i>
+            </div>
+            <span>CoopBingo</span>
+        </a>
+
+
+
+        <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navPrincipal" aria-label="Mostrar menú de navegación" title="Mostrar menú de navegación">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+
+
+        <div class="collapse navbar-collapse" id="navPrincipal">
+            {% if user.is_authenticated %}
+            <ul class="navbar-nav ms-auto align-items-center">
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'inicio' %}">Inicio</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'bingo' %}">Bingos</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium btn btn-success btn-sm rounded-pill ms-1 text-white shadow-sm animate__animated animate__pulse" style="animation-duration: 2s;" href="{% url 'partidas' %}" title="Ver partidas activas ahora">
+                        <i class="fas fa-play-circle me-1" aria-hidden="true"></i> <strong>Jugar Ahora</strong>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'mis_cartones' %}">Mis Cartones</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'venta_cartones' %}">
+                        <i class="fas fa-store me-1"></i> Comprar Cartones
+                    </a>
+                </li>
+                <li class="nav-item dropdown ms-lg-3 ps-lg-3 border-start-lg">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center py-1" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        {% if request.session.avatar_url %}
+                            <img src="{{ request.session.avatar_url }}" alt="Avatar" class="rounded-circle object-fit-cover me-2 border border-2 border-primary shadow-sm" style="width: 38px; height: 38px;">
+                        {% else %}
+                            <img src="{% static 'img/default_avatar.png' %}" alt="Avatar" class="rounded-circle object-fit-cover me-2 border border-2 border-secondary shadow-sm" style="width: 38px; height: 38px;">
+                        {% endif %}
+                        <span class="fw-bold text-body">{{ request.session.user_nombre|default:user.first_name }}</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 rounded-3" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item fw-medium py-2" href="{% url 'perfil' %}"><i class="fas fa-user-circle me-2 text-primary"></i> Mi Perfil y Cuenta</a></li>
+                        <li><a class="dropdown-item fw-medium py-2" href="{% url 'recargar_saldo' %}"><i class="fas fa-wallet me-2 text-success"></i> Recargar Saldo</a></li>
+                        <li><a class="dropdown-item fw-medium py-2" href="{% url 'mis_cartones' %}"><i class="fas fa-ticket-alt me-2 text-warning"></i> Mis Cartones</a></li>
+                        <li>
+                            {% if user.is_staff %}
+                            <a class="dropdown-item fw-medium py-2" href="{% url 'dashboard' %}"><i class="fas fa-chart-line me-2 text-indigo"></i> Panel de Control Admin</a>
+                            {% endif %}
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><form action="{% url 'logout' %}" method="post" class="px-2">{% csrf_token %}<button type="submit" class="dropdown-item text-danger fw-bold rounded py-2 d-flex align-items-center"><i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión</button></form></li>
+                    </ul>
+                </li>
+                <li class="nav-item ms-lg-3 ps-lg-3 mt-3 mt-lg-0 pt-3 pt-lg-0">
+                    <button class="btn btn-outline-secondary rounded-circle shadow-sm d-flex justify-content-center align-items-center" id="themeToggle-auth" style="width: 40px; height: 40px;" aria-label="Cambiar tema" title="Cambiar tema">
+                        <i class="fas fa-moon" id="themeIcon-auth"></i>
+                    </button>
+                </li>
+            </ul>
+            {% else %}
+            <ul class="navbar-nav ms-auto align-items-center">
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'inicio' %}">Inicio</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'bingo' %}">Bingo</a>
+                </li>
+                <li class="nav-item d-none d-lg-block mx-2 text-muted">|</li>
+                <li class="nav-item">
+                    <a class="nav-link px-3 fw-medium" href="{% url 'login' %}">Ingresar</a>
+                </li>
+                <li class="nav-item ms-lg-2">
+                    <a class="btn btn-indigo px-4 py-2 rounded-3 shadow-sm" href="{% url 'seleccion_registro' %}">Registrarme</a>
+                </li>
+                <li class="nav-item ms-lg-3 ps-lg-3 mt-3 mt-lg-0 pt-3 pt-lg-0">
+                    <button class="btn btn-outline-secondary rounded-circle shadow-sm d-flex justify-content-center align-items-center" id="themeToggle-guest" style="width: 40px; height: 40px;" aria-label="Cambiar tema" title="Cambiar tema">
+                        <i class="fas fa-moon" id="themeIcon-guest"></i>
+                    </button>
+                </li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+
+
+<style>
+    @media (min-width: 992px) {
+        .border-start-lg { border-left: 1px solid var(--bs-border-color) !important; }
+    }
+</style>

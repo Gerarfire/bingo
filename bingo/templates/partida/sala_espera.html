@@ -1,0 +1,190 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Sala de Espera - CoopBingo{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+
+        <div class="col-md-8 mb-4">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header text-white text-center py-3 rounded-top-4" style="background-color: #312E81;">
+                    <h4 class="mb-0 fw-bold"><i class="fas fa-hourglass-half me-2" aria-hidden="true"></i> Sala de Espera</h4>
+                    <p class="mb-0 small">Ronda: {{ partida.nombreronda }}</p>
+                </div>
+                <div class="card-body p-5">
+                    <div class="text-center py-4">
+                        <div class="spinner-grow text-warning mb-4" style="width: 4rem; height: 4rem;" role="status">
+                            <span class="visually-hidden">Esperando...</span>
+                        </div>
+                        <h3 class="fw-bold animate__animated animate__pulse animate__infinite">
+                            Esperando señal de inicio...
+                        </h3>
+                        <div class="d-inline-flex align-items-center gap-3 bg-warning bg-opacity-10 border border-warning border-opacity-50 rounded-pill px-4 py-2 mt-4 animate__animated animate__fadeInUp shadow-sm">
+                            <div class="render-micro-carton" data-modalidad="{{ partida.modalidad_victoria }}"></div>
+                            <div class="text-start">
+                                <span class="d-block small text-muted fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 1px;">Objetivo de Victoria</span>
+                                <span class="animate__animated animate__fadeInDown">{{ partida.modalidad_victoria }}</span>
+                            </div>
+                        </div>
+                        <p class="text-secondary mt-3 fs-5">
+                            <i class="fas fa-clock me-2" aria-hidden="true"></i> El juego comenzará en cuanto el Administrador lo indique en la mesa central. ¡Mucha suerte!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow border-0 rounded-4">
+                <div class="card-header bg-body-tertiary text-center py-3 rounded-top-4">
+                    <h6 class="mb-0 fw-bold text-body">
+                        <i class="fas fa-users me-2 text-primary" aria-hidden="true"></i> Jugadores en Sala (<span class="contador-dinamico">{{ jugadores_en_sala.count }}</span>)
+                    </h6>
+                </div>
+                <div class="card-body p-0" style="max-height: 300px; overflow-y: auto;">
+                    <div class="list-group list-group-flush lista-jugadores-dinamica" role="list">
+                        {% for j in jugadores_en_sala %}
+                        <div class="list-group-item d-flex align-items-center py-3" role="listitem" data-alias="{{ j.aliasjugador }}">
+                            <div class="text-white rounded-circle d-flex justify-content-center align-items-center me-3"
+                                 style="width: 35px; height: 35px; font-weight: bold; background-color: #4F46E5;">
+                                {{ j.aliasjugador|slice:":1"|upper }}
+                            </div>
+                            <span class="fw-bold text-secondary">{{ j.aliasjugador }}</span>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center text-muted py-4" role="listitem">
+                            <i class="fas fa-user-clock mb-2 fs-3 animate__animated animate__fadeInDown d-block" aria-hidden="true"></i>
+                            <span>Eres el primero en llegar.</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% include 'componentes/panel_social.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .micro-carton-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1px;
+        width: 32px;
+        height: 32px;
+        background-color: var(--bs-secondary-bg);
+        border: 1px solid var(--bs-border-color);
+        padding: 1px;
+        border-radius: 4px;
+    }
+    .micro-celda { background-color: var(--bs-body-bg); border-radius: 1px; }
+    .micro-marcada { background-color: #ffc107; box-shadow: 0 0 3px rgba(255, 193, 7, 0.8); }
+    .micro-free { background-color: rgba(255, 193, 7, 0.4); }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const microContenedores = document.querySelectorAll('.render-micro-carton');
+        if (microContenedores.length === 0) return;
+
+        const patrones = {
+            'Tabla Llena': [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24],
+            'Las Cuatro Esquinas': [0, 4, 20, 24],
+            'En Diagonal': [0, 6, 12, 18, 24],
+            'Forma de X': [0, 4, 6, 8, 12, 16, 18, 20, 24],
+            'Forma de Cruz': [2, 7, 10, 11, 12, 13, 14, 17, 22],
+            'Marco de Foto': [0,1,2,3,4, 5,9, 10,14, 15,19, 20,21,22,23,24],
+            'Linea Vertical': [2, 7, 12, 17, 22],
+            'Forma de L': [0, 5, 10, 15, 20, 21, 22, 23, 24],
+            'Forma de C': [0,1,2,3,4, 5, 10, 15, 20,21,22,23,24],
+            'Forma de T': [0,1,2,3,4, 7, 12, 17, 22],
+            'Forma de U': [0,4, 5,9, 10,14, 15,19, 20,21,22,23,24],
+            'Forma de H': [0,4, 5,9, 10,11,12,13,14, 15,19, 20,24],
+            'Forma de Z': [0,1,2,3,4, 8, 12, 16, 20,21,22,23,24],
+            'Forma de Flecha': [2, 6, 8, 12, 17, 22]
+        };
+
+        microContenedores.forEach(cont => {
+            const modalidad = cont.getAttribute('data-modalidad') || 'Tabla Llena';
+            const marcadas = patrones[modalidad] || patrones['Tabla Llena'];
+            let gridHTML = '<div class="micro-carton-grid">';
+            for (let i = 0; i < 25; i++) {
+                let claseExtra = marcadas.includes(i) ? 'micro-marcada' : '';
+                if (i === 12 && !marcadas.includes(i)) claseExtra += ' micro-free';
+                gridHTML += `<div class="micro-celda ${claseExtra}"></div>`;
+            }
+            gridHTML += '</div>';
+            cont.innerHTML = gridHTML;
+        });
+    });
+</script>
+
+<script>
+    window.BINGO_CONFIG = {
+        id_partida: "{{ partida.idpartidabingo }}",
+        id_bingo:   "{{ partida.idbingo.idbingo }}",
+        mi_alias:   "{{ jugador.aliasjugador }}",
+        mi_id:      "{{ jugador.idjugador }}"
+    };
+</script>
+
+<script src="{% static 'java/bingo_socket.js' %}"></script>
+
+<script>
+    document.addEventListener('evento_partida', function(e) {
+        const datos = e.detail;
+
+        if (datos.evento === 'estado_cambiado' && datos.nuevo_estado === 'En Juego') {
+            const divPausa = document.createElement('div');
+            divPausa.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(49,46,129,0.95);z-index:9999;display:flex;justify-content:center;align-items:center;flex-direction:column;";
+            divPausa.innerHTML = '<div class="spinner-border text-warning mb-3" style="width:4rem;height:4rem;" role="status"></div><h2 class="fw-bold text-white">¡El Juego ha Comenzado!</h2><p class="text-white-50 fs-5">Entrando al tablero en vivo...</p>';
+            document.body.appendChild(divPausa);
+            setTimeout(() => {
+                window.location.replace("{% url 'tablero_tiempo_real' id_partida=partida.idpartidabingo %}");
+            }, 500);
+
+        } else if (datos.evento === 'invitacion_vip') {
+            if (String(datos.id_jugador) === String(window.BINGO_CONFIG.mi_id)) {
+                const divPausa = document.createElement('div');
+                divPausa.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(220,53,69,0.95);z-index:9999;display:flex;justify-content:center;align-items:center;flex-direction:column;";
+                divPausa.innerHTML = '<i class="fas fa-trophy text-warning mb-4 animate__animated animate__tada animate__infinite" style="font-size:5rem;"></i><h1 class="fw-black text-white">¡Boleto VIP Confirmado!</h1><p class="text-white-50 fs-4">Entrando a la Sala de Duelo para el desempate...</p>';
+                document.body.appendChild(divPausa);
+                setTimeout(() => {
+                    window.location.replace("{% url 'sala_espera_desempate' id_partida=partida.idpartidabingo %}");
+                }, 1000);
+            }
+
+        } else if (datos.evento === 'estado_cambiado' && datos.nuevo_estado === 'Finalizada') {
+            const divPausa = document.createElement('div');
+            divPausa.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--bs-body-bg);z-index:9999;display:flex;justify-content:center;align-items:center;flex-direction:column;";
+            const ganadorNombre = datos.ganador || 'Jugador Oficial';
+            const esUltimaRonda = !datos.id_siguiente_partida;
+            const mensajeDespedida = esUltimaRonda ? "¡El evento ha finalizado! Volviendo al menú principal..." : "Moviendo a la siguiente sala...";
+            const iconoCentral = esUltimaRonda
+                ? '<i class="fas fa-check-circle text-success mb-3" style="font-size:3rem;"></i>'
+                : '<div class="spinner-border text-success mb-3" style="width:3rem;height:3rem;" role="status"></div>';
+            divPausa.innerHTML = `
+                <i class="fas fa-crown text-warning mb-3 animate__animated animate__bounceIn" style="font-size:5rem;"></i>
+                <h2 class="fw-bold text-body">Ronda Finalizada</h2>
+                <p class="text-muted fs-4 mb-4">El ganador fue: <span class="text-success fw-bold">${ganadorNombre}</span></p>
+                ${iconoCentral}
+                <p class="text-muted fw-bold fs-5">${mensajeDespedida}</p>
+            `;
+            document.body.appendChild(divPausa);
+            setTimeout(() => {
+                if (datos.id_siguiente_partida) {
+                    let urlSiguiente = "{% url 'sala_espera' id_partida=999999 %}".replace('999999', datos.id_siguiente_partida);
+                    window.location.replace(urlSiguiente);
+                } else {
+                    window.location.replace("{% url 'inicio' %}");
+                }
+            }, 3000);
+        }
+    });
+</script>
+{% endblock %}

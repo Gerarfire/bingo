@@ -1,0 +1,459 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Comprar Cartones - {{ bingo.titulobingo }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/animaciones.css' %}">
+<style>
+    .carton-catalog {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .carton-item {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #fff;
+        label { cursor: pointer; }
+    }
+    .carton-item:hover {
+        border-color: #007bff;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+        transform: translateY(-2px);
+    }
+    .carton-item.selected {
+        background: #007bff;
+        color: white;
+        border-color: #0056b3;
+        font-weight: bold;
+    }
+    .carton-item input[type="checkbox"] {
+        cursor: pointer;
+        margin-top: 8px;
+    }
+    .cart-summary {
+        position: sticky;
+        top: 20px;
+        background: #f8f9fa;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 10px 0;
+        font-size: 1.1rem;
+    }
+    .summary-row.total {
+        border-top: 2px solid #dee2e6;
+        padding-top: 10px;
+        font-weight: bold;
+        color: #28a745;
+        font-size: 1.3rem;
+    }
+    .summary-row.warning {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .btn-generate {
+        background: #6f42c1;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    .btn-generate:hover {
+        background: #5a32a3;
+        transform: scale(1.05);
+    }
+    .cantidad-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 1.1rem;
+        text-align: center;
+    }
+    .saldo-indicator {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    .saldo-ok {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .saldo-warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    .saldo-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5 bg-body-tertiary min-vh-100">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <!-- ENCABEZADO -->
+            <div class="card-minimalista p-4 shadow mb-4 border border-2" style="border-color: var(--color-primario);">
+                <div class="row align-items-center">
+                    <div class="col-12 col-md-8">
+                        <h2 class="mb-2 fw-bold">
+                            <i class="fas fa-shopping-cart text-success me-2"></i>
+                            Comprar Cartones
+                        </h2>
+                        <h4 class="text-muted mb-0">{{ bingo.titulobingo }}</h4>
+                        <small class="text-secondary">
+                            Partida: <strong>{{ partida.nombreronda }}</strong> | 
+                            Modalidad: <strong>{{ partida.modalidad_victoria }}</strong>
+                        </small>
+                    </div>
+                    <div class="col-12 col-md-4 text-end">
+                        <div class="bg-info bg-opacity-10 p-3 rounded">
+                            <small class="text-muted d-block">Precio por Cartón</small>
+                            <h3 class="text-info mb-0">${{ precio_unitario }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SALDO DEL JUGADOR -->
+            <div class="saldo-indicator {% if saldo_jugador >= precio_unitario %}saldo-ok{% elif saldo_jugador > 0 %}saldo-warning{% else %}saldo-error{% endif %}">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <i class="fas fa-wallet fs-4"></i>
+                    </div>
+                    <div class="col">
+                        <strong>Saldo Disponible:</strong> ${{ saldo_jugador }}
+                        {% if saldo_jugador < precio_unitario %}
+                            <br><small>⚠️ Fondos insuficientes para comprar cartones</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARRITO RESUMEN (LADO DERECHO) -->
+            <div class="row">
+                <div class="col-12 col-lg-8">
+                    <!-- CARTONES DEL CATÁLOGO -->
+                    {% if cartones_disponibles %}
+                    <div class="card-minimalista p-4 shadow mb-4 border">
+                        <h5 class="fw-bold mb-4">
+                            <i class="fas fa-th text-primary me-2"></i>
+                            Cartones Disponibles del Catálogo
+                        </h5>
+                        <div class="carton-catalog" id="carton-catalog">
+                            {% for carton in cartones_disponibles %}
+                            <label class="carton-item" id="carton-{{ carton.idcarton }}">
+                                <div>
+                                    <strong>#{{ carton.idcarton }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ carton.codigocarton }}</small>
+                                </div>
+                                <input type="checkbox" name="carton" value="{{ carton.idcarton }}" 
+                                       class="carton-checkbox" data-carton-id="{{ carton.idcarton }}">
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay cartones del catálogo disponibles. Puedes generar cartones nuevos abajo.
+                    </div>
+                    {% endif %}
+
+                    <!-- GENERAR CARTONES NUEVOS -->
+                    <div class="card-minimalista p-4 shadow border">
+                        <h5 class="fw-bold mb-4">
+                            <i class="fas fa-plus-circle text-purple me-2"></i>
+                            Generar Cartones Nuevos
+                        </h5>
+                        <div class="mb-3">
+                            <label for="cantidad-generar" class="form-label">¿Cuántos cartones deseas generar?</label>
+                            <div class="input-group">
+                                <input type="number" id="cantidad-generar" min="1" max="20" value="1" class="cantidad-input">
+                                <button type="button" class="btn-generate" onclick="generarCartones()">
+                                    <i class="fas fa-magic me-2"></i> Generar
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mt-2">Cada cartón se genera con números aleatorios únicos</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESUMEN DEL CARRITO -->
+                <div class="col-12 col-lg-4">
+                    <div class="cart-summary">
+                        <h5 class="fw-bold mb-3">
+                            <i class="fas fa-receipt text-success me-2"></i>
+                            Resumen de Compra
+                        </h5>
+                        
+                        <div class="summary-row">
+                            <span>Cartones del Catálogo:</span>
+                            <strong id="selected-catalog">0</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Cartones Generados:</span>
+                            <strong id="generated-count">0</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Total Cartones:</span>
+                            <strong id="total-cartones">0</strong>
+                        </div>
+                        
+                        <hr class="my-3">
+                        
+                        <div class="summary-row">
+                            <span>Precio Unitario:</span>
+                            <strong>${{ precio_unitario }}</strong>
+                        </div>
+                        <div class="summary-row total">
+                            <span>TOTAL A PAGAR:</span>
+                            <strong id="total-pagar">$0.00</strong>
+                        </div>
+                        
+                        <div class="summary-row warning" id="saldo-check" style="display: none; margin-top: 10px;">
+                            <small>
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Fondos insuficientes
+                            </small>
+                        </div>
+                        
+                        <button type="button" class="btn btn-success w-100 mt-4 py-3 fw-bold" 
+                                id="btn-comprar" onclick="confirmarCompra()">
+                            <i class="fas fa-check-circle me-2"></i> Confirmar Compra
+                        </button>
+                        
+                        <a href="{% url 'partidas' %}" class="btn btn-outline-secondary w-100 mt-2">
+                            <i class="fas fa-arrow-left me-2"></i> Volver a Partidas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE CONFIRMACIÓN -->
+<div class="modal fade" id="modalConfirma" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-credit-card me-2"></i> Confirmar Compra
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="lead">¿Confirmas la compra de <strong id="modal-cantidad">0</strong> cartones?</p>
+                <div class="alert alert-info">
+                    <strong>Total a descontar:</strong> $<span id="modal-total">0.00</span>
+                    <br>
+                    <strong>Saldo después:</strong> $<span id="modal-saldo">0.00</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="procesarCompra()">
+                    <i class="fas fa-check me-2"></i> Confirmar Compra
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const precioUnitario = parseFloat('{{ precio_unitario }}');
+const saldoDisponible = parseFloat('{{ saldo_jugador }}');
+const urlCompra = '{% url "compra_carton_api" id_partida=partida.idpartidabingo %}';
+
+let cartonesSeleccionados = [];
+let cartonesAGenerar = 0;
+let cartonesGenerados = [];
+
+// Actualizar resumen en tiempo real
+function actualizarResumen() {
+    // Contar cartones del catálogo
+    const checkboxes = document.querySelectorAll('.carton-checkbox:checked');
+    cartonesSeleccionados = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    const totalCatalogo = cartonesSeleccionados.length;
+    const totalGenerados = cartonesAGenerar;
+    const totalCartones = totalCatalogo + totalGenerados;
+    const totalPagar = totalCartones * precioUnitario;
+    
+    document.getElementById('selected-catalog').textContent = totalCatalogo;
+    document.getElementById('generated-count').textContent = totalGenerados;
+    document.getElementById('total-cartones').textContent = totalCartones;
+    document.getElementById('total-pagar').textContent = `$${totalPagar.toFixed(2)}`;
+    
+    // Validar saldo
+    const saldoCheck = document.getElementById('saldo-check');
+    const btnComprar = document.getElementById('btn-comprar');
+    
+    if (totalCartones === 0) {
+        btnComprar.disabled = true;
+        btnComprar.innerHTML = '<i class="fas fa-ban me-2"></i> Selecciona Cartones';
+    } else if (totalPagar > saldoDisponible) {
+        saldoCheck.style.display = 'flex';
+        btnComprar.disabled = true;
+        btnComprar.className = 'btn btn-danger w-100 mt-4 py-3 fw-bold';
+        btnComprar.innerHTML = '<i class="fas fa-times-circle me-2"></i> Fondos Insuficientes';
+    } else {
+        saldoCheck.style.display = 'none';
+        btnComprar.disabled = false;
+        btnComprar.className = 'btn btn-success w-100 mt-4 py-3 fw-bold';
+        btnComprar.innerHTML = '<i class="fas fa-check-circle me-2"></i> Confirmar Compra';
+    }
+}
+
+// Manejar selección de cartones
+document.querySelectorAll('.carton-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const cartonItem = document.getElementById(`carton-${this.value}`);
+        if (this.checked) {
+            cartonItem.classList.add('selected');
+        } else {
+            cartonItem.classList.remove('selected');
+        }
+        actualizarResumen();
+    });
+});
+
+// Generar cartones
+function generarCartones() {
+    const cantidad = parseInt(document.getElementById('cantidad-generar').value) || 0;
+    if (cantidad <= 0) {
+        alert('Ingresa una cantidad válida');
+        return;
+    }
+    if (cantidad > 20) {
+        alert('Máximo 20 cartones por generación');
+        return;
+    }
+    
+    // Generar cartones con matrices aleatorias
+    cartonesGenerados = [];
+    for (let i = 0; i < cantidad; i++) {
+        const codigo = `GEN_${Date.now()}_${i}`;
+        const matriz = generarMatrizAleatoria();
+        cartonesGenerados.push({ codigo, matriz });
+    }
+    
+    cartonesAGenerar = cantidad;
+    document.getElementById('cantidad-generar').value = '1'; // Reset
+    actualizarResumen();
+    alert(`✓ ${cantidad} cartón(es) generado(s) con éxito`);
+}
+
+// Generar matriz de números aleatoria
+function generarMatrizAleatoria() {
+    const generarRango = (min, max, cant) => {
+        let arr = [];
+        for (let i = min; i <= max; i++) arr.push(i);
+        return arr.sort(() => Math.random() - 0.5).slice(0, cant);
+    };
+    
+    return {
+        B: generarRango(1, 15, 5),
+        I: generarRango(16, 30, 5),
+        N: generarRango(31, 45, 5),
+        G: generarRango(46, 60, 5),
+        O: generarRango(61, 75, 5),
+    };
+}
+
+// Confirmar compra
+function confirmarCompra() {
+    const totalCartones = cartonesSeleccionados.length + cartonesAGenerar;
+    const totalPagar = totalCartones * precioUnitario;
+    const saldoRestante = saldoDisponible - totalPagar;
+    
+    document.getElementById('modal-cantidad').textContent = totalCartones;
+    document.getElementById('modal-total').textContent = totalPagar.toFixed(2);
+    document.getElementById('modal-saldo').textContent = saldoRestante.toFixed(2);
+    
+    new bootstrap.Modal(document.getElementById('modalConfirma')).show();
+}
+
+// Procesar compra
+async function procesarCompra() {
+    const btnProcesar = event.target;
+    btnProcesar.disabled = true;
+    btnProcesar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+    
+    const totalCartones = cartonesSeleccionados.length + cartonesAGenerar;
+    const totalPagar = totalCartones * precioUnitario;
+    
+    try {
+        const response = await fetch(urlCompra, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                cartones: cartonesSeleccionados,
+                cantidad: cartonesAGenerar
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            if (response.status === 402) {
+                alert(`❌ Fondos insuficientes.\nNecesitas: $${data.total_requerido}\nDispones: $${data.saldo_actual}\nFalta: $${data.faltante}`);
+            } else if (response.status === 409) {
+                alert(`⚠️ ${data.error}\nAlguien compró uno de estos cartones primero. Intenta nuevamente.`);
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+            btnProcesar.disabled = false;
+            btnProcesar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar Compra';
+            return;
+        }
+        
+        // Éxito
+        alert(`✅ ${data.mensaje}\n\nSaldo restante: $${data.saldo_restante}`);
+        
+        // Redirigir a mis cartones
+        setTimeout(() => {
+            window.location.href = '{% url "mis_cartones" %}';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error en la transacción: ' + error.message);
+        btnProcesar.disabled = false;
+        btnProcesar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar Compra';
+    }
+}
+
+// Inicializar
+actualizarResumen();
+</script>
+{% endblock %}

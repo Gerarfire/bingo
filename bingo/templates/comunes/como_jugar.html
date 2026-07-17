@@ -1,0 +1,224 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}¿Cómo Jugar? - CoopBingo{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+
+    <!-- CABECERA -->
+    <div class="text-center mb-5 animate__animated animate__fadeInDown">
+        <h1 class="fw-bold mb-2 display-5">
+            <i class="fas fa-question-circle text-info me-2" aria-hidden="true"></i> ¿Cómo Jugar Bingo?
+        </h1>
+        <p class="lead text-muted">Sigue estos simples pasos para empezar a jugar ahora</p>
+    </div>
+
+    <!-- PASOS PRINCIPALES -->
+    <div class="row g-4 mb-5">
+
+        <!-- PASO 1: COMPRAR CARTONES -->
+        <div class="col-12 col-md-6 col-lg-3 animate__animated animate__fadeInLeft">
+            <div class="card-minimalista h-100 shadow-sm border-start border-4 border-success p-4 text-center">
+                <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                    <span class="text-success fw-bold fs-4">1</span>
+                </div>
+                <h5 class="fw-bold mb-3">Compra Cartones</h5>
+                <p class="text-muted small mb-3">Selecciona un bingo y compra cartones. Puedes elegir del catálogo o generar aleatoriamente.</p>
+                <a href="{% url 'venta_cartones' %}" class="btn btn-success btn-sm w-100 rounded-pill fw-bold">
+                    <i class="fas fa-shopping-cart me-1" aria-hidden="true"></i> Ir a Tienda
+                </a>
+            </div>
+        </div>
+
+        <!-- PASO 2: VER PARTIDAS ACTIVAS -->
+        <div class="col-12 col-md-6 col-lg-3 animate__animated animate__fadeInUp">
+            <div class="card-minimalista h-100 shadow-sm border-start border-4 border-info p-4 text-center">
+                <div class="rounded-circle bg-info bg-opacity-10 d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                    <span class="text-info fw-bold fs-4">2</span>
+                </div>
+                <h5 class="fw-bold mb-3">Busca Partidas</h5>
+                <p class="text-muted small mb-3">Accede a partidas activas y descubre cuáles están jugándose en este momento.</p>
+                <a href="{% url 'partidas' %}" class="btn btn-info btn-sm w-100 rounded-pill fw-bold">
+                    <i class="fas fa-list me-1" aria-hidden="true"></i> Ver Partidas
+                </a>
+            </div>
+        </div>
+
+        <!-- PASO 3: ENTRA A UNA PARTIDA -->
+        <div class="col-12 col-md-6 col-lg-3 animate__animated animate__fadeInRight">
+            <div class="card-minimalista h-100 shadow-sm border-start border-4 border-warning p-4 text-center">
+                <div class="rounded-circle bg-warning bg-opacity-10 d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                    <span class="text-warning fw-bold fs-4">3</span>
+                </div>
+                <h5 class="fw-bold mb-3">Entra a Jugar</h5>
+                <p class="text-muted small mb-3">Selecciona una partida y entra. Si ya comenzó, entras directo al tablero.</p>
+                <a href="{% url 'partidas' %}" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold">
+                    <i class="fas fa-play me-1" aria-hidden="true"></i> Jugar
+                </a>
+            </div>
+        </div>
+
+        <!-- PASO 4: MARCA Y GANA -->
+        <div class="col-12 col-md-6 col-lg-3 animate__animated animate__fadeInDown" style="animation-delay: 0.1s;">
+            <div class="card-minimalista h-100 shadow-sm border-start border-4 border-danger p-4 text-center">
+                <div class="rounded-circle bg-danger bg-opacity-10 d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px;">
+                    <span class="text-danger fw-bold fs-4">4</span>
+                </div>
+                <h5 class="fw-bold mb-3">¡Marca y Gana!</h5>
+                <p class="text-muted small mb-3">Marca los números que se llamen. ¡Si completas el patrón, ganas!</p>
+                <span class="badge bg-danger px-3 py-2 fw-bold">🎉 PREMIO</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- DETALLES DEL JUEGO -->
+    <div class="card-minimalista shadow-sm p-5 mb-5">
+        <h3 class="fw-bold mb-4"><i class="fas fa-info-circle text-primary me-2" aria-hidden="true"></i> Detalles Importantes</h3>
+        
+        <div class="row g-4">
+            <div class="col-md-6">
+                <h6 class="fw-bold text-success mb-2">✓ ¿Cómo Funciona?</h6>
+                <ul class="list-unstyled small text-muted">
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i> Los números se llaman en vivo</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i> Debes marcar los números en tus cartones</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i> El primero en completar el patrón gana</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i> Si hay empate, entra la ronda de desempate</li>
+                </ul>
+            </div>
+
+            <div class="col-md-6">
+                <h6 class="fw-bold text-info mb-2">📋 Modalidades de Victoria</h6>
+                <ul class="list-unstyled small text-muted">
+                    <li class="mb-2"><i class="fas fa-star text-info me-2" aria-hidden="true"></i> <strong>Tabla Llena:</strong> Todos los números</li>
+                    <li class="mb-2"><i class="fas fa-star text-info me-2" aria-hidden="true"></i> <strong>Diagonal:</strong> Línea diagonal</li>
+                    <li class="mb-2"><i class="fas fa-star text-info me-2" aria-hidden="true"></i> <strong>Esquinas:</strong> Los 4 puntos</li>
+                    <li class="mb-2"><i class="fas fa-star text-info me-2" aria-hidden="true"></i> <strong>Fila/Columna:</strong> Línea recta</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ESTRUCTURA DEL CARTÓN -->
+    <div class="card-minimalista shadow-sm p-5 mb-5">
+        <h3 class="fw-bold mb-4"><i class="fas fa-th text-warning me-2" aria-hidden="true"></i> Tu Cartón (5x5)</h3>
+        <p class="text-muted mb-4">Cada cartón tiene 25 números distribuidos en 5 columnas:</p>
+        
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover text-center fw-bold">
+                <thead>
+                    <tr class="bg-primary text-white">
+                        <th style="width: 20%; background-color: #0066cc;">B<br><small style="font-size: 11px;">1-15</small></th>
+                        <th style="width: 20%; background-color: #0066cc;">I<br><small style="font-size: 11px;">16-30</small></th>
+                        <th style="width: 20%; background-color: #0066cc;">N<br><small style="font-size: 11px;">31-45</small></th>
+                        <th style="width: 20%; background-color: #0066cc;">G<br><small style="font-size: 11px;">46-60</small></th>
+                        <th style="width: 20%; background-color: #0066cc;">O<br><small style="font-size: 11px;">61-75</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>3</td>
+                        <td>18</td>
+                        <td class="bg-warning fw-bold text-dark">FREE</td>
+                        <td>52</td>
+                        <td>68</td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td>23</td>
+                        <td>36</td>
+                        <td>49</td>
+                        <td>71</td>
+                    </tr>
+                    <tr>
+                        <td>11</td>
+                        <td>28</td>
+                        <td>40</td>
+                        <td>54</td>
+                        <td>74</td>
+                    </tr>
+                    <tr>
+                        <td>12</td>
+                        <td>30</td>
+                        <td>45</td>
+                        <td>58</td>
+                        <td>75</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="alert alert-info mt-3 mb-0">
+            <i class="fas fa-lightbulb me-2" aria-hidden="true"></i>
+            <strong>Consejo:</strong> El centro (casilla FREE) ya está marcado automáticamente. ¡Empiezas con ventaja!
+        </div>
+    </div>
+
+    <!-- BOTÓN GRANDE PARA EMPEZAR -->
+    <div class="text-center mb-5">
+        <a href="{% url 'partidas' %}" class="btn btn-success btn-lg rounded-pill px-5 shadow-lg animate__animated animate__heartBeat">
+            <i class="fas fa-play-circle me-2" aria-hidden="true"></i> <strong>¡Jugar Ahora!</strong>
+        </a>
+    </div>
+
+    <!-- PREGUNTAS FRECUENTES -->
+    <div class="card-minimalista shadow-sm p-5">
+        <h3 class="fw-bold mb-4"><i class="fas fa-comments text-success me-2" aria-hidden="true"></i> Preguntas Frecuentes</h3>
+        
+        <div class="accordion" id="faqAccordion">
+            <div class="accordion-item border-0 mb-2 shadow-sm">
+                <h2 class="accordion-header">
+                    <button class="accordion-button fw-bold bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        ¿Cuál es el costo de los cartones?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted">
+                        El precio varía según el bingo. Consulta la tienda para ver precios específicos y promociones vigentes.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 mb-2 shadow-sm">
+                <h2 class="accordion-header">
+                    <button class="accordion-button fw-bold bg-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        ¿Puedo jugar desde el celular?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted">
+                        Sí. La plataforma es totalmente responsive y funciona en cualquier dispositivo (celular, tablet, computadora).
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 mb-2 shadow-sm">
+                <h2 class="accordion-header">
+                    <button class="accordion-button fw-bold bg-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                        ¿Cómo se distribuye el premio?
+                    </button>
+                </h2>
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted">
+                        El premio se distribuye según la modalidad de victoria y se deposita directamente en tu cuenta.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 shadow-sm">
+                <h2 class="accordion-header">
+                    <button class="accordion-button fw-bold bg-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                        ¿Qué pasa si hay empate?
+                    </button>
+                </h2>
+                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted">
+                        Si dos o más jugadores completan el patrón al mismo tiempo, se va a desempate. Se sortean números adicionales hasta que queda un ganador.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

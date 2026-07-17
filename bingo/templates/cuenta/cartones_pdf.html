@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mis Cartones - {{ bingo.titulobingo }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm;
+        }
+        body { font-family: Helvetica, Arial, sans-serif; }
+        .carton-container {
+            border: 3px solid #1e1b4b;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 10px;
+        }
+        .header-table { width: 100%; margin-bottom: 15px; }
+        .header-table td { vertical-align: middle; }
+        .coop-name { font-size: 14px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 2px;}
+        .bingo-title { font-size: 24px; font-weight: bold; color: #1e1b4b; text-transform: uppercase; }
+        .player-info { font-size: 14px; color: #444; text-align: right; }
+        
+        /* Ajustes de CSS para evitar bugs visuales en xhtml2pdf */
+        .grid-table {
+            width: 100%;
+            text-align: center;
+            border-collapse: collapse;
+        }
+        .grid-table th {
+            background-color: #4f46e5;
+            color: white;
+            font-size: 26px;
+            padding: 10px;
+            border: 2px solid #1e1b4b;
+        }
+        .grid-table td {
+            font-size: 30px;
+            font-weight: bold;
+            padding: 15px; /* Reducido para no romper fondos */
+            border: 2px solid #1e1b4b;
+            color: #222;
+        }
+        /* Color amarillo seguro */
+        .free-cell { 
+            background-color: #fef08a; 
+            font-size: 20px; /* Letra un poco más chica para que encaje bien */
+        } 
+        .footer-info { font-size: 11px; margin-top: 8px; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+
+
+
+    {% for c in cartones %}
+        
+        <div class="carton-container">
+            <table class="header-table">
+                <tr>
+                    <td width="60%">
+                        <div class="coop-name">CoopBingo Oficial</div>
+                        <div class="bingo-title">{{ bingo.titulobingo }}</div>
+                        <div style="font-size: 14px; margin-top: 5px;"><strong>Fecha del Evento:</strong> {{ bingo.fechaprogramadabingo|date:"d/m/Y H:i" }}</div>
+                    </td>
+                    <td width="40%" class="player-info">
+                        <div style="margin-bottom: 4px;"><strong>Jugador:</strong> {{ jugador.aliasjugador }}</div>
+                        <div><strong>Serial:</strong> {{ c.codigo }}</div>
+                    </td>
+                </tr>
+            </table>
+
+
+
+            <table class="grid-table">
+                <thead>
+                    <tr>
+                        <th width="20%">B</th>
+                        <th width="20%">I</th>
+                        <th width="20%">N</th>
+                        <th width="20%">G</th>
+                        <th width="20%">O</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in c.filas %}
+                    <tr>
+                        {% for numero in fila %}
+                            {% if numero == 'FREE' %}
+                                <td class="free-cell">LIBRE</td>
+                            {% else %}
+                                <td>{{ numero }}</td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="footer-info">Cartón maestro validado criptográficamente. Este cartón es válido para todas las rondas de la jornada actual.</div>
+        </div>
+
+
+
+        {% if forloop.counter|divisibleby:2 and not forloop.last %}
+            <pdf:nextpage />
+        {% endif %}
+
+
+
+    {% endfor %}
+
+
+
+</body>
+</html>

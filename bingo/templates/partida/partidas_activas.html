@@ -1,0 +1,182 @@
+{% extends 'comunes/base.html' %}
+{% load static %}
+{% block title %}Partidas Activas - CoopBingo{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+
+    <!-- CABECERA -->
+    <div class="d-flex align-items-center justify-content-between mb-5 animate__animated animate__fadeInDown">
+        <div>
+            <h1 class="fw-bold mb-2"><i class="fas fa-dice text-danger me-2" aria-hidden="true"></i> Partidas Activas Ahora</h1>
+            <p class="text-muted">Elige una partida, verifica que tienes cartones y ¡a jugar!</p>
+        </div>
+        <a href="{% url 'bingo' %}" class="btn btn-outline-primary rounded-pill px-5 fw-bold">
+            <i class="fas fa-arrow-left me-2" aria-hidden="true"></i> Atrás
+        </a>
+    </div>
+
+    {% if partidas_en_juego %}
+
+        <!-- FILTRO POR ESTADO -->
+        <div class="mb-4">
+            <div class="btn-group shadow-sm" role="group" aria-label="Filtrar partidas">
+                <input type="radio" class="btn-check" name="filtro-estado" id="filtro-todas" value="todas" checked>
+                <label class="btn btn-outline-primary fw-bold" for="filtro-todas">
+                    <i class="fas fa-star me-1" aria-hidden="true"></i> Todas
+                </label>
+                
+                <input type="radio" class="btn-check" name="filtro-estado" id="filtro-enjuego" value="en-juego">
+                <label class="btn btn-outline-success fw-bold" for="filtro-enjuego">
+                    <i class="fas fa-circle me-1" aria-hidden="true"></i> En Juego
+                </label>
+                
+                <input type="radio" class="btn-check" name="filtro-estado" id="filtro-espera" value="espera">
+                <label class="btn btn-outline-warning fw-bold" for="filtro-espera">
+                    <i class="fas fa-clock me-1" aria-hidden="true"></i> Sala de Espera
+                </label>
+            </div>
+        </div>
+
+        <!-- GRID DE PARTIDAS -->
+        <div class="row g-4">
+            {% for partida in partidas_en_juego %}
+            <div class="col-12 col-md-6 col-lg-4 partida-card animate__animated animate__fadeInUp"
+                 data-estado="{% if partida.estadopartida == 'En Juego' %}en-juego{% else %}espera{% endif %}">
+                
+                <div class="card-minimalista h-100 shadow-sm border-top border-4
+                    {% if partida.estadopartida == 'En Juego' %}
+                        border-success
+                    {% else %}
+                        border-warning
+                    {% endif %}">
+
+                    <!-- CABECERA DE PARTIDA -->
+                    <div class="p-4 border-bottom d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="fw-bold mb-1 text-body">{{ partida.idbingo.titulobingo }}</h5>
+                                <p class="text-muted small mb-0">
+                                    <i class="fas fa-calendar me-1" aria-hidden="true"></i>
+                                    {{ partida.idbingo.fechaprogramadabingo|date:"d/m/Y H:i" }}
+                                </p>
+                            </div>
+                            <span class="badge
+                                {% if partida.estadopartida == 'En Juego' %}
+                                    bg-success animate__animated animate__pulse animate__infinite
+                                {% else %}
+                                    bg-warning text-dark
+                                {% endif %}
+                                px-2 py-1" style="font-size: 0.8rem;">
+                                <i class="fas fa-circle me-1" aria-hidden="true"></i>
+                                {{ partida.estadopartida }}
+                            </span>
+                        </div>
+
+                        <!-- DETALLES DE RONDA -->
+                        <div class="bg-body-tertiary p-2 rounded small mb-2">
+                            <span class="d-block fw-bold text-body">{{ partida.nombreronda }}</span>
+                            <span class="text-muted">
+                                Modalidad: <strong>{{ partida.modalidad_victoria }}</strong>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- PREMIO Y CONDICIONES -->
+                    <div class="p-4 border-bottom">
+                        <div class="row g-2 text-center">
+                            <div class="col-6">
+                                <span class="d-block text-muted small fw-bold">Premio</span>
+                                <h6 class="fw-bold text-success mb-0">
+                                    {{ partida.idbingo.idunidadmonetaria.simbolomoneda }}
+                                    {% if partida.premiomaterial == '[POZO_MAYOR]' %}
+                                        {{ partida.idbingo.premiomayor }}
+                                    {% else %}
+                                        {{ partida.valorpremio }}
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <div class="col-6">
+                                <span class="d-block text-muted small fw-bold">Jugadores</span>
+                                <h6 class="fw-bold text-primary mb-0">
+                                    <i class="fas fa-users me-1" aria-hidden="true"></i>
+                                    {{ partida.jugadores_activos }}
+                                </h6>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ESTADO DE MIS CARTONES -->
+                    <div class="p-4 border-bottom">
+                        {% if partida.mis_cartones %}
+                            <div class="alert alert-success alert-sm py-2 px-3 mb-0">
+                                <i class="fas fa-check-circle me-2" aria-hidden="true"></i>
+                                <span class="small fw-bold">Tienes <strong>{{ partida.mis_cartones }}</strong> cartón(es)</span>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning alert-sm py-2 px-3 mb-0">
+                                <i class="fas fa-exclamation-triangle me-2" aria-hidden="true"></i>
+                                <span class="small fw-bold">Sin cartones para esta partida</span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- BOTÓN DE ACCIÓN -->
+                    <div class="p-4">
+                        <div class="d-grid gap-2">
+                            {% if partida.estadopartida == 'En Juego' %}
+                                <a href="{% url 'tablero_tiempo_real' id_partida=partida.idpartidabingo %}"
+                                   class="btn btn-success fw-bold py-3 shadow-lg animate__animated animate__pulse"
+                                   style="animation-duration: 1.5s;">
+                                    <i class="fas fa-door-open me-2" aria-hidden="true"></i> ENTRAR AL JUEGO
+                                </a>
+                            {% else %}
+                                <a href="{% url 'sala_espera' id_partida=partida.idpartidabingo %}"
+                                   class="btn btn-warning fw-bold py-3 shadow-lg">
+                                    <i class="fas fa-chair me-2" aria-hidden="true"></i> SALA DE ESPERA
+                                </a>
+                            {% endif %}
+                            
+                            <!-- BOTÓN COMPRAR CARTONES -->
+                            <a href="{% url 'ventana_cartones' id_partida=partida.idpartidabingo %}"
+                               class="btn btn-outline-success fw-bold py-2">
+                                <i class="fas fa-shopping-cart me-2" aria-hidden="true"></i> Comprar Más Cartones
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- SCRIPT DE FILTRO -->
+        <script>
+            document.querySelectorAll('input[name="filtro-estado"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const valor = this.value;
+                    document.querySelectorAll('.partida-card').forEach(card => {
+                        const estado = card.getAttribute('data-estado');
+                        if (valor === 'todas' || valor === estado) {
+                            card.style.display = '';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        </script>
+
+    {% else %}
+        <div class="text-center py-5 card-minimalista p-5 shadow-sm">
+            <i class="fas fa-inbox fs-1 text-muted opacity-25 mb-3 d-block" aria-hidden="true"></i>
+            <h4 class="fw-bold text-secondary mb-2">No hay partidas activas en este momento</h4>
+            <p class="text-muted mb-4">Las partidas se abrirán 30 minutos antes de su hora programada.</p>
+            <a href="{% url 'bingo' %}" class="btn btn-indigo px-5 fw-bold rounded-pill">
+                <i class="fas fa-calendar-alt me-2" aria-hidden="true"></i> Ver Cartelera
+            </a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

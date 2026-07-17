@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrativo - Bingo Solidario</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1200px; margin: 40px auto; padding: 20px; }
+        .card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { margin-bottom: 10px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; }
+        .stat-number { font-size: 2.5em; font-weight: bold; }
+        .stat-label { margin-top: 10px; opacity: 0.9; }
+        a { color: #667eea; text-decoration: none; font-weight: bold; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Panel Administrativo</h1>
+        <p>Gestiona el sistema Bingo Solidario</p>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Bienvenido al Panel de Administración</h2>
+            <p>Desde aquí puedes gestionar todos los aspectos del sistema.</p>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Jugadores</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Partidas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Socios</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">$0.00</div>
+                    <div class="stat-label">Ingresos</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Opciones de Administración</h3>
+            <ul style="list-style: none; margin-top: 20px;">
+                <li style="padding: 10px 0;"><a href="/admin/">→ Ir a Django Admin</a></li>
+                <li style="padding: 10px 0;"><a href="{% url 'finanzas' %}">→ Control de Finanzas</a></li>
+                <li style="padding: 10px 0;"><a href="{% url 'partidas' %}">→ Ver Partidas</a></li>
+                <li style="padding: 10px 0;"><a href="{% url 'inicio' %}">← Volver al Inicio</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
