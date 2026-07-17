@@ -1040,7 +1040,7 @@ class SesionJuego(models.Model):
         
         constraints = [
             models.CheckConstraint(
-                check=models.Q(estadosesion__in=['Activa', 'Finalizada', 'Caida']),
+                condition=models.Q(estadosesion__in=['Activa', 'Finalizada', 'Caida']),
                 name='chk_sesionjuego_estadosesion'
             )
         ]
@@ -1102,7 +1102,7 @@ class Regalo(models.Model):
         verbose_name_plural = 'Catálogo de Regalos'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(estadoregalo__in=['Acumulado', 'Sorteado', 'Entregado']),
+                condition=models.Q(estadoregalo__in=['Acumulado', 'Sorteado', 'Entregado']),
                 name='chk_regalo_estadoregalo'
             )
         ]
@@ -1185,11 +1185,11 @@ class AporteSemanal(models.Model):
         verbose_name_plural = 'Control de Aportes Semanales'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(estadoaporte__in=['Al Dia', 'Atrasado']),
+                condition=models.Q(estadoaporte__in=['Al Dia', 'Atrasado']),
                 name='chk_aportesemanal_estadoaporte'
             ),
             models.CheckConstraint(
-                check=models.Q(metodoingreso__in=['Efectivo', 'Transferencia', 'Fisico']),
+                condition=models.Q(metodoingreso__in=['Efectivo', 'Transferencia', 'Fisico']),
                 name='chk_aportesemanal_metodoingreso'
             )
         ]

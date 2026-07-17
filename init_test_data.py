@@ -19,10 +19,10 @@ print("🎮 Inicializando datos de prueba para BINGO...")
 
 # 1. Crear Unidad Monetaria
 moneda, created = UnidadMonetaria.objects.get_or_create(
-    tipomoneda='Efectivo',
-    defaults={'simbolomoneda': '$', 'tipocambio': Decimal('1.00')}
+    nombre='Efectivo',
+    defaults={'simbolo': '$'}
 )
-print(f"✅ Moneda: {moneda.tipomoneda}" if created else f"✅ Moneda existente: {moneda.tipomoneda}")
+print(f"✅ Moneda: {moneda.nombre}" if created else f"✅ Moneda existente: {moneda.nombre}")
 
 # 2. Crear Admin
 admin_user, created = User.objects.get_or_create(
@@ -53,12 +53,16 @@ jugador, created = Jugador.objects.get_or_create(
     cedulaidentidadjugador='12345678',
     defaults={
         'aliasjugador': 'Jugador Prueba',
-        'saldocreditojugador': Decimal('1000.00'),
-        'saldovirtualjugador': Decimal('500.00'),
-        'usuarioadmin': jugador_user,
+        'nombresjugador': 'Jugador',
+        'apellidosjugador': 'Prueba',
+        'correojugador': 'jugador@test.local',
+        'saldocreditojugador': Decimal('5000.00'),
     }
 )
-print(f"✅ Jugador: {jugador.aliasjugador}")
+if not created:
+    jugador.saldocreditojugador = Decimal('5000.00')
+    jugador.save()
+print(f"✅ Jugador: {jugador.aliasjugador} (Saldo: {jugador.saldocreditojugador})")
 
 # 4. Crear BINGO (Evento)
 ahora = timezone.now()
@@ -67,12 +71,15 @@ hora_futura = ahora + timedelta(hours=1)
 bingo, created = Bingo.objects.get_or_create(
     titulobingo='BINGO DE PRUEBA',
     defaults={
-        'idbingo': 1,
-        'idunidadmonetaria': moneda,
-        'estadobingo': 'Programado',
-        'descripcionbingo': 'Partida de prueba para jugar en tiempo real',
         'fechaprogramadabingo': hora_futura,
+        'tipobingo': 'Virtual',
+        'lugarbingo': '',
+        'preciocarton': Decimal('50.00'),
         'premiomayor': Decimal('5000.00'),
+        'descripcionpremiomayor': 'Gran premio de prueba',
+        'descripcionpremios': 'Premios secundarios disponibles',
+        'estadobingo': 'Programado',
+        'idunidadmonetaria': moneda,
     }
 )
 print(f"✅ Bingo: {bingo.titulobingo}")
@@ -86,15 +93,18 @@ partida, created = PartidaBingo.objects.get_or_create(
         'estadopartida': 'Programada',  # Will be changed to 'En Juego' by admin
         'modalidad_victoria': 'En Diagonal',
         'valorpremio': Decimal('1000.00'),
+        'premiomaterial': 'Regalo de prueba',
+        'horainicio': ahora,
         'bolascantadas': '',
-        'ultimabola': None,
+        'ultimabola': 0,
     }
 )
 print(f"✅ Partida: {partida.nombreronda} (Estado: {partida.estadopartida})")
 
 # 6. Crear Cartones
+CARTONES_PARA_JUGAR = 10
 cartones_creados = 0
-for i in range(3):
+for i in range(CARTONES_PARA_JUGAR):
     matriz = {
         'B': [random.randint(1, 15) for _ in range(5)],
         'I': [random.randint(16, 30) for _ in range(5)],
@@ -103,26 +113,30 @@ for i in range(3):
         'O': [random.randint(61, 75) for _ in range(5)],
     }
     
+    carton_codigo = f"CARTON-{i+1:03d}"
     carton, created = Carton.objects.get_or_create(
-        idcarton=i + 1,
+        codigocarton=carton_codigo,
         defaults={
             'matriznumeros': json.dumps(matriz),
-            'estadocarton': 'Disponible',
+            'esmaestro': False,
+            'indicevictoria': random.randint(0, 100),
         }
     )
     
     if created:
-        # Asignar cartón a partida y jugador
-        asignacion, _ = CartonPartidaBingo.objects.get_or_create(
-            idcarton=carton,
-            idpartida=partida,
-            idjugador=jugador,
-            defaults={
-                'estadocarton': 'Activo',
-                'fechacompra': ahora,
-            }
-        )
         cartones_creados += 1
+    
+    # Asignar cartón a partida y jugador
+    asignacion, _ = CartonPartidaBingo.objects.get_or_create(
+        idcarton=carton,
+        idpartida=partida,
+        idjugador=jugador,
+        defaults={
+            'estadocarton': 'Vendido',
+            'fechacompra': ahora,
+            'preciopagado': bingo.preciocarton,
+        }
+    )
 
 print(f"✅ Cartones creados: {cartones_creados}")
 

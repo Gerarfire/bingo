@@ -3,6 +3,7 @@ import json
 import random
 import uuid
 from datetime import datetime, timedelta, date
+from decimal import Decimal
 
 from asgiref.sync import async_to_sync
 from django.contrib import messages
@@ -58,7 +59,7 @@ except ImportError:  # pragma: no cover - fallback para entornos sin OpenPyXL
     Alignment = Font = PatternFill = None
 
 try:
-    pisa = importlib.import_module('xhtml2pdf').pisa
+    pisa = importlib.import_module('xhtml2pdf.pisa')
 except ImportError:  # pragma: no cover - fallback para entornos sin xhtml2pdf
     pisa = None
 
@@ -1367,7 +1368,11 @@ def recargar_saldo(request):
     """
     Página para recargar saldo/crédito del jugador
     """
-    jugador = Jugador.objects.filter(cedulaidentidadjugador=request.user.username).first()
+    jugador = Jugador.objects.filter(
+        Q(cedulaidentidadjugador=request.user.username) |
+        Q(correojugador=request.user.email) |
+        Q(aliasjugador=request.user.username)
+    ).first()
     if not jugador:
         messages.warning(request, "Necesitas crear tu perfil de jugador.")
         return redirect('registro_jugador')
@@ -1400,7 +1405,11 @@ def procesar_recarga_saldo(request):
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Método no permitido'}, status=405)
 
-    jugador = Jugador.objects.filter(cedulaidentidadjugador=request.user.username).first()
+    jugador = Jugador.objects.filter(
+        Q(cedulaidentidadjugador=request.user.username) |
+        Q(correojugador=request.user.email) |
+        Q(aliasjugador=request.user.username)
+    ).first()
     if not jugador:
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Jugador no encontrado'}, status=404)
@@ -1409,7 +1418,7 @@ def procesar_recarga_saldo(request):
         data = json.loads(request.body)
         monto_str = data.get('monto', '0')
         monto = Decimal(str(monto_str))
-    except:
+    except Exception:
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Monto inválido'}, status=400)
 
@@ -1429,9 +1438,6 @@ def procesar_recarga_saldo(request):
             jugador.saldocreditojugador += monto
             jugador.save()
 
-            # Registrar movimiento (si hay tabla de historial)
-            # Aquí se podría agregar un registro en una tabla de movimientos/transacciones
-
             from django.http import JsonResponse as _JR
             return _JR({
                 'status': 'ok',
@@ -1444,11 +1450,6 @@ def procesar_recarga_saldo(request):
     except Exception as e:
         from django.http import JsonResponse as _JR
         return _JR({'error': f'Error en la recarga: {str(e)}'}, status=500)
-
-
-    except Exception as e:
-        from django.http import JsonResponse as _JR
-        return _JR({'error': f'Error en transacción: {str(e)}'}, status=500)
 
 
 def bingo_publico(request):
