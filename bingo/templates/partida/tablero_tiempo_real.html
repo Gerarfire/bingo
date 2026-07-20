@@ -95,7 +95,7 @@
         <div class="row g-4 justify-content-center cartones-carrusel">
             {% for asignacion in cartones_asignados %}
                 <!-- Agregamos estilo de transición para que el ordenamiento sea suave -->
-                <div class="col-12 col-sm-6 col-lg-4 col-xl-3 carton-dinamico" style="transition: all 0.5s ease-in-out;">
+                <div class="col-12 col-sm-6 col-lg-4 col-xl-3" style="transition: all 0.5s ease-in-out;">
                     {% include 'componentes/carton_juego.html' with asignacion=asignacion bolas_llamadas=bolas_llamadas %}
                 </div>
             {% empty %}
@@ -272,48 +272,54 @@
     // =======================================================
     // NUEVO: MOTOR DEL ROBOT AUTO-MARCADOR (CONECTADO AL BACKEND)
     // =======================================================
-    function ejecutarAutoMarcado() {
-        // Busca en toda la pantalla los números que salieron pero no han sido presionados
-        const celdasPista = document.querySelectorAll('.celda-pista');
-        if (celdasPista.length === 0) return;
+    function marcarCeldaLocal(celda, numero) {
+        if (!celda || celda.classList.contains('free') || celda.classList.contains('celda-marcada') || celda.classList.contains('marcada')) return;
+        celda.classList.remove('celda-pista', 'animacion-latido-pista');
+        celda.classList.add('celda-marcada', 'marcada', 'animacion-estampado');
+        celda.style.opacity = '1';
+        celda.style.pointerEvents = 'auto';
+        celda.dataset.numero = numero;
+        celda.innerHTML = `<i class="fas fa-star position-absolute text-dark opacity-25" style="font-size: 1.5rem; top: 50%; left: 50%; transform: translate(-50%, -50%);"></i><span class="position-relative z-1 fw-bold text-white fs-5">${numero}</span>`;
 
-
-
-        celdasPista.forEach(celda => {
-            // Extraer el número
-            let numeroStr = celda.innerText.trim();
-            if (!numeroStr) {
-                celda.classList.forEach(cls => {
-                    if (cls.startsWith('celda-numero-')) numeroStr = cls.replace('celda-numero-', '');
-                });
+        const cartonDiv = celda.closest('.carton-dinamico');
+        if (cartonDiv) {
+            const contador = cartonDiv.querySelector('.contador-marcados');
+            if (contador) {
+                const marcadas = cartonDiv.querySelectorAll('.marcada, .free').length;
+                contador.textContent = marcadas;
             }
-            if (!numeroStr || isNaN(numeroStr)) return;
+        }
+    }
+
+    function ejecutarAutoMarcado() {
+        const meta = JSON.parse(document.getElementById('tablero-meta').textContent || '{}');
+        const bolasCantadas = meta.bolas_llamadas || [];
+        const celdas = document.querySelectorAll('.celda-carton[data-numero]:not(.free):not(.marcada):not(.celda-marcada)');
+        if (celdas.length === 0) return;
+
+        celdas.forEach(celda => {
+            const numero = parseInt(celda.dataset.numero, 10);
+            if (!numero || bolasCantadas.indexOf(numero) === -1) return;
 
 
 
             // FIX: Extraer el código del cartón leyendo el texto naranja de la cabecera
             const cartonDiv = celda.closest('.carton-dinamico');
-            const spanCodigo = cartonDiv.querySelector('.text-warning');
-            if (!spanCodigo) return; // Si no encuentra el texto, aborta
-            const codigoCarton = spanCodigo.innerText.trim();
+            const spanCodigo = cartonDiv ? cartonDiv.querySelector('.text-warning') : null;
+            const codigoCarton = spanCodigo ? spanCodigo.innerText.trim() : null;
 
+            marcarCeldaLocal(celda, numero);
 
-
-            // Bloquear visualmente para no saturar al servidor
-            celda.style.opacity = '0.5';
-            celda.style.pointerEvents = 'none';
-
-
-
-            // El robot pide permiso al servidor vía WebSocket
-            if (window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
+            if (codigoCarton && window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
                 window.bingoSocket.send(JSON.stringify({
-                    'tipo': 'marcar_casilla',
-                    'carton_codigo': codigoCarton,
-                    'numero': parseInt(numeroStr)
+                    tipo: 'marcar_casilla',
+                    carton_codigo: codigoCarton,
+                    numero: numero
                 }));
             }
         });
+
+        verificarCartones();
     }
 
 
@@ -429,12 +435,14 @@
         
         // Memoria del Switch del Robot
         const swAuto = document.getElementById('switch-automarcado');
-        const isAutoActive = localStorage.getItem('bingo_auto_' + idPartida) === 'true';
+        const storedAuto = localStorage.getItem('bingo_auto_' + idPartida);
+        const isAutoActive = storedAuto === null ? true : storedAuto === 'true';
         if (swAuto) {
             swAuto.checked = isAutoActive;
+            localStorage.setItem('bingo_auto_' + idPartida, String(isAutoActive));
             swAuto.addEventListener('change', function() {
-                localStorage.setItem('bingo_auto_' + idPartida, this.checked);
-                if(this.checked) ejecutarAutoMarcado();
+                localStorage.setItem('bingo_auto_' + idPartida, String(this.checked));
+                if (this.checked) ejecutarAutoMarcado();
             });
         }
 
@@ -469,21 +477,23 @@
         
         // 2. Evaluar cada bola que ya salió y aplicar estados estrictos
         bolasCantadas.forEach(numero => {
-            const celdas = document.querySelectorAll(`.celda-numero-${numero}`);
+            const celdas = document.querySelectorAll(`.celda-carton[data-numero="${numero}"]`);
             celdas.forEach(celda => {
+                celda.dataset.numero = numero;
                 if (marcadasGuardadas.includes(numero.toString())) {
-                    celda.classList.add('celda-marcada');
+                    celda.classList.add('celda-marcada', 'marcada');
                     celda.innerHTML = `<i class="fas fa-star position-absolute text-dark opacity-25" style="font-size: 1.5rem; top: 50%; left: 50%; transform: translate(-50%, -50%);"></i><span class="position-relative z-1 fw-bold text-white fs-5">${numero}</span>`;
+                } else if (isAutoActive) {
+                    marcarCeldaLocal(celda, numero);
                 } else {
                     celda.classList.add('celda-pista', 'animacion-latido-pista');
-                    celda.innerHTML = `<span class="position-relative z-1 fw-bold text-body fs-5">${numero}</span>`;
                 }
             });
         });
 
 
 
-        if(isAutoActive) {
+        if (isAutoActive) {
             setTimeout(ejecutarAutoMarcado, 300);
         }
 
@@ -493,9 +503,9 @@
         // NUEVO: EVENTO MANUAL (Petición al Servidor)
         // =======================================================
         document.addEventListener('click', function(e) {
-            const celda = e.target.closest('.celda-pista');
-            if (celda) {
-                let numeroStr = celda.innerText.trim();
+            const celda = e.target.closest('.celda-carton');
+            if (celda && celda.classList.contains('celda-pista') && !celda.classList.contains('free')) {
+                let numeroStr = celda.dataset.numero || celda.innerText.trim();
                 if (!numeroStr) {
                     celda.classList.forEach(cls => {
                         if (cls.startsWith('celda-numero-')) numeroStr = cls.replace('celda-numero-', '');
@@ -569,18 +579,48 @@
 
 
 
-            const celdas = document.querySelectorAll(`.celda-numero-${numero}`);
-            celdas.forEach(celda => {
-                if (!celda.classList.contains('celda-marcada')) {
-                    celda.classList.add('celda-pista', 'animacion-latido-pista');
-                }
-            });
+            const metaEl = document.getElementById('tablero-meta');
+            if (metaEl) {
+                const meta = JSON.parse(metaEl.textContent || '{}');
+                meta.bolas_llamadas = Array.from(new Set([...(meta.bolas_llamadas || []), numero]));
+                metaEl.textContent = JSON.stringify(meta);
+            }
+
+            const swAuto = document.getElementById('switch-automarcado');
+            if (swAuto && swAuto.checked) {
+                const celdas = document.querySelectorAll(`.celda-carton[data-numero="${numero}"]:not(.free):not(.marcada):not(.celda-marcada)`);
+                celdas.forEach(celda => {
+                    celda.dataset.numero = numero;
+                    marcarCeldaLocal(celda, numero);
+
+                    const cartonDiv = celda.closest('.carton-dinamico');
+                    const spanCodigo = cartonDiv ? cartonDiv.querySelector('.text-warning') : null;
+                    const codigoCarton = spanCodigo ? spanCodigo.innerText.trim() : null;
+                    if (codigoCarton && window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
+                        window.bingoSocket.send(JSON.stringify({
+                            tipo: 'marcar_casilla',
+                            carton_codigo: codigoCarton,
+                            numero: numero
+                        }));
+                    }
+                });
+                verificarCartones();
+            } else {
+                const celdas = document.querySelectorAll(`.celda-carton[data-numero="${numero}"]`);
+                celdas.forEach(celda => {
+                    if (!celda.classList.contains('celda-marcada')) {
+                        celda.classList.add('celda-pista', 'animacion-latido-pista');
+                        celda.dataset.numero = numero;
+                    }
+                });
+                verificarCartones();
+            }
 
 
 
             const swAuto = document.getElementById('switch-automarcado');
             if (swAuto && swAuto.checked) {
-                setTimeout(ejecutarAutoMarcado, 400);
+                setTimeout(ejecutarAutoMarcado, 100);
             } else {
                 verificarCartones();
             }

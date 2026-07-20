@@ -275,7 +275,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="procesarCompra()">
+                <button type="button" id="btn-procesar-confirm" class="btn btn-success" onclick="procesarCompra()">
                     <i class="fas fa-check me-2"></i> Confirmar Compra
                 </button>
             </div>
@@ -402,9 +402,11 @@ function confirmarCompra() {
 
 // Procesar compra
 async function procesarCompra() {
-    const btnProcesar = event.target;
-    btnProcesar.disabled = true;
-    btnProcesar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+    const btnProcesar = document.getElementById('btn-procesar-confirm');
+    if (btnProcesar) {
+        btnProcesar.disabled = true;
+        btnProcesar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+    }
     
     const totalCartones = cartonesSeleccionados.length + cartonesAGenerar;
     const totalPagar = totalCartones * precioUnitario;
@@ -412,6 +414,7 @@ async function procesarCompra() {
     try {
         const response = await fetch(urlCompra, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}'
@@ -432,8 +435,10 @@ async function procesarCompra() {
             } else {
                 alert(`❌ Error: ${data.error}`);
             }
-            btnProcesar.disabled = false;
-            btnProcesar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar Compra';
+            if (btnProcesar) {
+                btnProcesar.disabled = false;
+                btnProcesar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar Compra';
+            }
             return;
         }
         
@@ -448,8 +453,10 @@ async function procesarCompra() {
     } catch (error) {
         console.error('Error:', error);
         alert('❌ Error en la transacción: ' + error.message);
-        btnProcesar.disabled = false;
-        btnProcesar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar Compra';
+        if (btnProcesar) {
+            btnProcesar.disabled = false;
+            btnProcesar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar Compra';
+        }
     }
 }
 

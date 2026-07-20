@@ -45,7 +45,7 @@ class JuegoBingoRealtime {
         document.addEventListener('evento_partida', (e) => this.procesarEvento(e.detail));
         
         // Auto-marcado manual por clic
-        document.querySelectorAll('.celda-pista').forEach(celda => {
+        document.querySelectorAll('.celda-carton.celda-pista').forEach(celda => {
             celda.addEventListener('click', (e) => {
                 if (e.target.closest('.carton-dinamico')) {
                     this.marcarCeldaManual(celda);
@@ -80,7 +80,7 @@ class JuegoBingoRealtime {
     }
     
     marcarNumeroEnTodos(numero) {
-        document.querySelectorAll('.celda-pista').forEach(celda => {
+        document.querySelectorAll('.celda-carton.celda-pista').forEach(celda => {
             const numeroStr = celda.querySelector('.numero-celda')?.textContent?.trim();
             if (numeroStr === String(numero)) {
                 if (!celda.classList.contains('marcada') && !celda.classList.contains('free')) {
@@ -143,7 +143,7 @@ class JuegoBingoRealtime {
     }
     
     obtenerCeldasMarcadas(carton) {
-        const celdas = carton.elemento.querySelectorAll('.celda-pista');
+        const celdas = carton.elemento.querySelectorAll('.celda-carton');
         const marcadas = [];
         
         celdas.forEach((celda, idx) => {

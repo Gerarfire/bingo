@@ -139,10 +139,7 @@ def inicio_sesion(request):
         if user and user.check_password(password):
             if not user.is_active:
                 messages.error(request, 'Esta cuenta ha sido desactivada o suspendida del sistema.')
-                return redirect('inicio_sesion')
-
-            login(request, user)
-
+                return redirect('login')
             socio = Socio.objects.filter(cisocio=user.username).first()
             jugador = Jugador.objects.filter(cedulaidentidadjugador=user.username).first()
 
@@ -253,12 +250,18 @@ def registro_jugador(request):
         if request.user.is_authenticated:
             try:
                 socio_vinculado = Socio.objects.get(cisocio=request.user.username)
+                # Verificar correo duplicado
+                correo_actual = request.user.email
+                if correo_actual and Jugador.objects.filter(correojugador=correo_actual).exists():
+                    messages.error(request, "El correo ya está registrado en otro perfil de jugador.")
+                    return redirect('registro_jugador')
+
                 Jugador.objects.create(
                     idsocio=socio_vinculado,
                     aliasjugador=alias,
                     nombresjugador=socio_vinculado.primernombresocio,
                     cedulaidentidadjugador=socio_vinculado.cisocio,
-                    correojugador=request.user.email,
+                    correojugador=correo_actual,
                 )
                 request.session['user_nombre'] = alias
                 messages.success(request, f"¡Perfil de juego activado como '{alias}'!")
@@ -278,6 +281,11 @@ def registro_jugador(request):
 
             if User.objects.filter(username=cedula).exists():
                 messages.error(request, "Cédula ya registrada.")
+                return redirect('registro_jugador')
+
+            # Validar correo duplicado antes de crear
+            if correo and Jugador.objects.filter(correojugador=correo).exists():
+                messages.error(request, "El correo ya está registrado en otro perfil de jugador.")
                 return redirect('registro_jugador')
 
             try:
@@ -490,7 +498,47 @@ def sala_espera(request, id_partida):
 
     if partida.estadopartida == 'En Juego':
         return redirect('tablero_tiempo_real', id_partida=partida.idpartidabingo)
+    
+    # Permitir que la partida comience automáticamente cuando el primer jugador entra
+    if partida.estadopartida == 'Programada':
+        try:
+            channel_layer = get_channel_layer()
+            partida.estadopartida = 'En Juego'
+            partida.horainiciopartida = timezone.now()
+            partida.save()
 
+            bingo_padre = partida.idbingo
+            if bingo_padre and bingo_padre.estadobingo == 'Programado':
+                bingo_padre.estadobingo = 'En Curso'
+                bingo_padre.save()
+
+            async_to_sync(channel_layer.group_send)(
+                f'bingo_partida_{partida.idpartidabingo}',
+                {'type': 'evento_partida', 'datos': {'evento': 'estado_cambiado', 'nuevo_estado': 'En Juego'}}
+            )
+
+            # Extraer la primera bola automáticamente para arrancar el juego
+            try:
+                bolas_str = (partida.bolascantadas or '').replace('B','').replace('I','').replace('N','').replace('G','').replace('O','')
+                bolas_llamadas = [int(b.strip()) for b in bolas_str.split(',') if b.strip().isdigit()]
+                bolas_disponibles = [i for i in range(1, 76) if i not in bolas_llamadas]
+                if bolas_disponibles:
+                    nueva_bola = random.choice(bolas_disponibles)
+                    bolas_llamadas.append(nueva_bola)
+                    partida.ultimabola = nueva_bola
+                    partida.bolascantadas = ','.join(map(str, bolas_llamadas))
+                    partida.save()
+                    async_to_sync(channel_layer.group_send)(
+                        f'bingo_partida_{partida.idpartidabingo}',
+                        {'type': 'evento_partida', 'datos': {'evento': 'nueva_bola', 'numero': nueva_bola}}
+                    )
+            except Exception:
+                pass
+
+            return redirect('tablero_tiempo_real', id_partida=partida.idpartidabingo)
+        except Exception:
+            # Si algo falla, continuar mostrando la sala de espera para no bloquear al usuario
+            pass
     if partida.estadopartida in ['Verificando', 'Desempate'] and partida.idbingadores:
         ids_vip = [int(i.strip()) for i in str(partida.idbingadores).split(',') if i.strip()]
         if jugador.idjugador in ids_vip:
@@ -544,6 +592,28 @@ def tablero_tiempo_real(request, id_partida):
         return redirect('inicio')
 
     partida = get_object_or_404(PartidaBingo, idpartidabingo=id_partida)
+
+    if partida.estadopartida == 'Programada':
+        return redirect('sala_espera', id_partida=partida.idpartidabingo)
+
+    # Si la partida está en curso pero aún no se han cantado bolas, generar la primera bola.
+    if partida.estadopartida == 'En Juego' and not (partida.bolascantadas and str(partida.bolascantadas).strip()):
+        try:
+            channel_layer = get_channel_layer()
+            bolas_llamadas = []
+            bolas_disponibles = [i for i in range(1, 76) if i not in bolas_llamadas]
+            if bolas_disponibles:
+                nueva_bola = random.choice(bolas_disponibles)
+                bolas_llamadas.append(nueva_bola)
+                partida.ultimabola = nueva_bola
+                partida.bolascantadas = ','.join(map(str, bolas_llamadas))
+                partida.save()
+                async_to_sync(channel_layer.group_send)(
+                    f'bingo_partida_{partida.idpartidabingo}',
+                    {'type': 'evento_partida', 'datos': {'evento': 'nueva_bola', 'numero': nueva_bola}}
+                )
+        except Exception:
+            pass
 
     if partida.estadopartida in ['Verificando', 'Desempate']:
         return redirect('sala_espera_desempate', id_partida=partida.idpartidabingo)

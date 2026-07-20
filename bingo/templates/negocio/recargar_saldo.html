@@ -330,7 +330,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="confirmarRecarga()">
+                <button type="button" id="btn-confirmar-recarga" class="btn btn-success" onclick="confirmarRecarga()">
                     <i class="fas fa-check me-2"></i> Confirmar
                 </button>
             </div>
@@ -431,13 +431,16 @@ function procesarRecarga() {
 }
 
 async function confirmarRecarga() {
-    const btnConfirmar = event.target;
-    btnConfirmar.disabled = true;
-    btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+    const btnConfirmar = document.getElementById('btn-confirmar-recarga');
+    if (btnConfirmar) {
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+    }
     
     try {
         const response = await fetch(urlRecarga, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}'
@@ -451,8 +454,10 @@ async function confirmarRecarga() {
         
         if (!response.ok) {
             alert(`❌ Error: ${data.error}`);
-            btnConfirmar.disabled = false;
-            btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';
+            if (btnConfirmar) {
+                btnConfirmar.disabled = false;
+                btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';
+            }
             return;
         }
         
@@ -467,8 +472,10 @@ async function confirmarRecarga() {
     } catch (error) {
         console.error('Error:', error);
         alert('❌ Error en la transacción: ' + error.message);
-        btnConfirmar.disabled = false;
-        btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';
+        if (btnConfirmar) {
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';
+        }
     }
 }
 </script>

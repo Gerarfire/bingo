@@ -533,14 +533,6 @@ class Jugador(models.Model):
         db_column='idsocio',
         verbose_name="Socio Vinculado"
     )
-    idsocio = models.ForeignKey(
-        'Socio', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        db_column='idsocio',
-        verbose_name="Socio Vinculado"
-    )
     nombresjugador = models.CharField(
         max_length=150, 
         null=True, 

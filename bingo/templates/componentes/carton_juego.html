@@ -34,7 +34,7 @@
         <!-- NÚMEROS DEL CARTÓN (0-24) -->
         {% for i in "01234" %}
             {% with indice=forloop.counter0 %}
-            <div class="celda-pista bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
+            <div class="celda-carton bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
                  style="aspect-ratio: 1; border-color: #ddd; font-size: 0.95rem; min-height: 45px; transition: all 0.2s ease-in-out; position: relative;"
                  data-indice="{{ indice }}"
                  data-columna="B"
@@ -48,7 +48,7 @@
 
         {% for i in "01234" %}
             {% with indice=forloop.counter0|add:5 %}
-            <div class="celda-pista bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
+            <div class="celda-carton bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
                  style="aspect-ratio: 1; border-color: #ddd; font-size: 0.95rem; min-height: 45px; transition: all 0.2s ease-in-out; position: relative;"
                  data-indice="{{ indice }}"
                  data-columna="I"
@@ -62,7 +62,7 @@
 
         {% for i in "01234" %}
             {% with indice=forloop.counter0|add:10 %}
-            <div class="celda-pista bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
+            <div class="celda-carton bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
                  style="aspect-ratio: 1; border-color: #ddd; font-size: 0.95rem; min-height: 45px; transition: all 0.2s ease-in-out; position: relative;"
                  data-indice="{% if forloop.counter == 3 %}free{% else %}{{ indice }}{% endif %}"
                  data-columna="N"
@@ -81,7 +81,7 @@
 
         {% for i in "01234" %}
             {% with indice=forloop.counter0|add:15 %}
-            <div class="celda-pista bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
+            <div class="celda-carton bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
                  style="aspect-ratio: 1; border-color: #ddd; font-size: 0.95rem; min-height: 45px; transition: all 0.2s ease-in-out; position: relative;"
                  data-indice="{{ indice }}"
                  data-columna="G"
@@ -95,7 +95,7 @@
 
         {% for i in "01234" %}
             {% with indice=forloop.counter0|add:20 %}
-            <div class="celda-pista bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
+            <div class="celda-carton bg-white border border-2 rounded d-flex align-items-center justify-content-center fw-bold cursor-pointer"
                  style="aspect-ratio: 1; border-color: #ddd; font-size: 0.95rem; min-height: 45px; transition: all 0.2s ease-in-out; position: relative;"
                  data-indice="{{ indice }}"
                  data-columna="O"
@@ -143,12 +143,13 @@
     ];
     
     // Rellenar las celdas con los números reales
-    const celdas = cartonDiv.querySelectorAll('.celda-pista');
+    const celdas = cartonDiv.querySelectorAll('.celda-carton');
     celdas.forEach((celda, idx) => {
         const numero = numeros[idx];
         if (numero !== undefined) {
             celda.querySelector('.numero-celda').textContent = numero;
             celda.classList.add(`celda-numero-${numero}`);
+            celda.dataset.numero = numero;
         }
         
         // Marcar la celda FREE (índice 12 es el centro)
@@ -158,10 +159,11 @@
             celda.style.fontWeight = 'bold';
             celda.querySelector('.numero-celda').textContent = 'FREE';
             celda.style.cursor = 'default';
+            celda.dataset.numero = 'free';
             celda.setAttribute('data-indice', 'free');
             celda.querySelector('.marcado-visual').classList.remove('d-none');
         } else {
-            // Manejador de clic para marcar/desmarcar
+            // Manejador de clic para marcar/desmarcar localmente
             celda.addEventListener('click', function(e) {
                 e.preventDefault();
                 celda.classList.toggle('marcada');
