@@ -14,7 +14,9 @@
 {% block content %}
 <div class="container-fluid py-4 bg-body-tertiary min-vh-100">
 
-
+    <form method="post" style="display:none;">
+        {% csrf_token %}
+    </form>
 
     {% include 'componentes/panel_social.html' %}
     <div id="zona-notificaciones-bingo" class="position-fixed top-0 start-50 translate-middle-x mt-4" style="z-index: 1060; width: 95%; max-width: 400px; pointer-events: none;"></div>
@@ -38,7 +40,7 @@
 
 
 
-                <div style="display: flex; flex-direction: row !important; flex-wrap: nowrap !important; justify-content: center; align-items: center; gap: 20px;">
+                <div style="display: flex; flex-direction: row !important; flex-wrap: nowrap !important; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
                     <div class="text-center">
                         <span class="d-block small animate__animated animate__fadeInDown mb-1 fw-bold text-muted">Historial</span>
                         <div id="tubo-bolas" class="tubo-cristal mx-auto"></div>
@@ -48,6 +50,11 @@
                         <div id="display-ultima-bola" class="display-ultima-bola bg-body text-body rounded-circle d-flex justify-content-center align-items-center shadow-lg border border-4 border-warning mx-auto">
                             {{ partida.ultimabola|default:"--" }}
                         </div>
+                    </div>
+                    <div class="text-center bg-body rounded-pill border border-warning px-3 py-2 shadow-sm">
+                        <div class="small fw-bold text-muted">Progreso</div>
+                        <div class="fw-bold text-warning" id="contador-bolas">0 / 75</div>
+                        <div class="small text-muted">Siguiente en <span id="contador-tiempo">8</span>s</div>
                     </div>
                 </div>
             </div>
@@ -425,6 +432,141 @@
 
 
 
+    function actualizarContadorBolas(bolasCantadas) {
+        const contador = document.getElementById('contador-bolas');
+        if (contador) {
+            const total = Math.max(1, bolasCantadas.length);
+            contador.textContent = `${total} / 75`;
+        }
+    }
+
+    function actualizarDisplayBola(numero) {
+        const display = document.getElementById('display-ultima-bola');
+        if (display) {
+            display.innerText = numero;
+            display.classList.remove('animacion-entrada-bola');
+            void display.offsetWidth;
+            display.classList.add('animacion-entrada-bola');
+        }
+    }
+
+    function renderizarHistorialBolas(numero) {
+        const tubo = document.getElementById('tubo-bolas');
+        if (!tubo) return;
+        if (!tubo.firstChild || tubo.firstChild.innerText != numero) {
+            const nuevaBola = document.createElement('div');
+            nuevaBola.className = 'bola-historial animacion-caida-tubo';
+            nuevaBola.innerText = numero;
+            tubo.insertBefore(nuevaBola, tubo.firstChild);
+            if (tubo.children.length > 9) tubo.removeChild(tubo.lastChild);
+        }
+    }
+
+    function aplicarNuevaBola(numero, {persistirMeta = true, marcarCeldas = true} = {}) {
+        cantarBolaConVoz(numero);
+        actualizarDisplayBola(numero);
+        renderizarHistorialBolas(numero);
+
+        if (persistirMeta) {
+            const metaEl = document.getElementById('tablero-meta');
+            if (metaEl) {
+                const meta = JSON.parse(metaEl.textContent || '{}');
+                meta.bolas_llamadas = Array.from(new Set([...(meta.bolas_llamadas || []), numero]));
+                metaEl.textContent = JSON.stringify(meta);
+            }
+        }
+
+        actualizarContadorBolas((document.getElementById('tablero-meta') ? JSON.parse(document.getElementById('tablero-meta').textContent || '{}').bolas_llamadas || [] : []));
+
+        if (marcarCeldas) {
+            const swAuto = document.getElementById('switch-automarcado');
+            const debeMarcar = !swAuto || swAuto.checked;
+            if (debeMarcar) {
+                const celdas = document.querySelectorAll(`.celda-carton[data-numero="${numero}"]:not(.free):not(.marcada):not(.celda-marcada)`);
+                celdas.forEach(celda => {
+                    celda.dataset.numero = numero;
+                    marcarCeldaLocal(celda, numero);
+
+                    const cartonDiv = celda.closest('.carton-dinamico');
+                    const spanCodigo = cartonDiv ? cartonDiv.querySelector('.text-warning') : null;
+                    const codigoCarton = spanCodigo ? spanCodigo.innerText.trim() : null;
+                    if (codigoCarton && window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
+                        window.bingoSocket.send(JSON.stringify({
+                            tipo: 'marcar_casilla',
+                            carton_codigo: codigoCarton,
+                            numero: numero
+                        }));
+                    }
+                });
+                verificarCartones();
+                setTimeout(ejecutarAutoMarcado, 100);
+            } else {
+                const celdas = document.querySelectorAll(`.celda-carton[data-numero="${numero}"]`);
+                celdas.forEach(celda => {
+                    if (!celda.classList.contains('celda-marcada')) {
+                        celda.classList.add('celda-pista', 'animacion-latido-pista');
+                        celda.dataset.numero = numero;
+                    }
+                });
+                verificarCartones();
+            }
+        }
+    }
+
+    async function sacarBolaRemota() {
+        const idPartida = window.BINGO_CONFIG?.id_partida;
+        if (!idPartida || window.__bingoSacaEnCurso) return;
+        window.__bingoSacaEnCurso = true;
+
+        try {
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+            const respuesta = await fetch(`/api/partida/${idPartida}/sacar_bola/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+
+            const datos = await respuesta.json().catch(() => ({}));
+            if (!respuesta.ok) {
+                console.warn('La API de bolas respondió con error:', respuesta.status, datos);
+                return;
+            }
+
+            if (datos?.bola_extraida !== null && datos?.bola_extraida !== undefined) {
+                aplicarNuevaBola(datos.bola_extraida, {persistirMeta: true, marcarCeldas: true});
+            }
+        } catch (error) {
+            console.warn('No fue posible avanzar la bola automáticamente:', error);
+        } finally {
+            window.__bingoSacaEnCurso = false;
+        }
+    }
+
+    function iniciarFlujoAutomaticoBolas() {
+        if (!window.BINGO_CONFIG?.id_partida || window.__bingoFlujoIniciado) return;
+        window.__bingoFlujoIniciado = true;
+
+        const contadorTiempo = document.getElementById('contador-tiempo');
+        let tiempoRestante = 8;
+
+        const tick = () => {
+            if (contadorTiempo) contadorTiempo.textContent = tiempoRestante;
+            tiempoRestante -= 1;
+            if (tiempoRestante < 0) {
+                tiempoRestante = 8;
+                sacarBolaRemota();
+            }
+        };
+
+        tick();
+        setInterval(tick, 1000);
+        setInterval(() => sacarBolaRemota(), 8000);
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const idPartida = window.BINGO_CONFIG.id_partida;
         const bolasCantadas = JSON.parse(document.getElementById('tablero-meta').textContent).bolas_llamadas; 
@@ -457,6 +599,8 @@
         // --------------------------------------------------
 
 
+
+        actualizarContadorBolas(bolasCantadas);
 
         // Carga inicial del historial en el tubo
         const ultimasBolas = bolasCantadas.slice(-9).reverse();
@@ -494,7 +638,7 @@
             setTimeout(ejecutarAutoMarcado, 300);
         }
 
-
+        iniciarFlujoAutomaticoBolas();
 
         // =======================================================
         // NUEVO: EVENTO MANUAL (Petición al Servidor)

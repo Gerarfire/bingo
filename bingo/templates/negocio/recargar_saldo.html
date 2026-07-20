@@ -443,17 +443,26 @@ async function confirmarRecarga() {
             credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
+                'Accept': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({
                 monto: montoSeleccionado
             })
         });
-        
-        const data = await response.json();
+
+        let data = {};
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            data = await response.json().catch(() => ({}));
+        } else {
+            const text = await response.text().catch(() => '');
+            data = text ? { error: text } : {};
+        }
         
         if (!response.ok) {
-            alert(`❌ Error: ${data.error}`);
+            alert(`❌ Error: ${data.error || 'No se pudo completar la recarga'}`);
             if (btnConfirmar) {
                 btnConfirmar.disabled = false;
                 btnConfirmar.innerHTML = '<i class="fas fa-check me-2"></i> Confirmar';

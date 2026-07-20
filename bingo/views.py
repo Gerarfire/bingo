@@ -46,7 +46,7 @@ from .services import (
     generar_lote_cartones,
     validar_carton_hibrido,
 )
-from .tasks import fabricar_cartones_maestros_task
+from .tasks import avanzar_partida_con_bola, fabricar_cartones_maestros_task
 
 try:
     openpyxl = importlib.import_module('openpyxl')
@@ -562,23 +562,8 @@ def sala_espera(request, id_partida):
 
             # Extraer la primera bola automáticamente para arrancar el juego
             try:
-                bolas_str = (partida.bolascantadas or '').replace('B', '').replace(
-                    'I', '').replace('N', '').replace('G', '').replace('O', '')
-                bolas_llamadas = [int(b.strip()) for b in bolas_str.split(
-                    ',') if b.strip().isdigit()]
-                bolas_disponibles = [i for i in range(
-                    1, 76) if i not in bolas_llamadas]
-                if bolas_disponibles:
-                    nueva_bola = random.choice(bolas_disponibles)
-                    bolas_llamadas.append(nueva_bola)
-                    partida.ultimabola = nueva_bola
-                    partida.bolascantadas = ','.join(map(str, bolas_llamadas))
-                    partida.save()
-                    async_to_sync(channel_layer.group_send)(
-                        f'bingo_partida_{partida.idpartidabingo}',
-                        {'type': 'evento_partida', 'datos': {
-                            'evento': 'nueva_bola', 'numero': nueva_bola}}
-                    )
+                avanzar_partida_con_bola(
+                    partida.idpartidabingo, enviar_evento=True)
             except Exception:
                 pass
 
@@ -652,21 +637,8 @@ def tablero_tiempo_real(request, id_partida):
     # Si la partida está en curso pero aún no se han cantado bolas, generar la primera bola.
     if partida.estadopartida == 'En Juego' and not (partida.bolascantadas and str(partida.bolascantadas).strip()):
         try:
-            channel_layer = get_channel_layer()
-            bolas_llamadas = []
-            bolas_disponibles = [i for i in range(
-                1, 76) if i not in bolas_llamadas]
-            if bolas_disponibles:
-                nueva_bola = random.choice(bolas_disponibles)
-                bolas_llamadas.append(nueva_bola)
-                partida.ultimabola = nueva_bola
-                partida.bolascantadas = ','.join(map(str, bolas_llamadas))
-                partida.save()
-                async_to_sync(channel_layer.group_send)(
-                    f'bingo_partida_{partida.idpartidabingo}',
-                    {'type': 'evento_partida', 'datos': {
-                        'evento': 'nueva_bola', 'numero': nueva_bola}}
-                )
+            avanzar_partida_con_bola(
+                partida.idpartidabingo, enviar_evento=True)
         except Exception:
             pass
 
@@ -1204,9 +1176,9 @@ def consola_juego(request, id_partida):
 
 @login_required
 def sacar_bola_api(request, id_partida):
-    if request.method != 'POST' or not request.user.is_staff:
+    if request.method != 'POST':
         from django.http import JsonResponse as _JR
-        return _JR({'error': 'Acceso denegado'}, status=403)
+        return _JR({'error': 'Método no permitido'}, status=405)
 
     partida = get_object_or_404(PartidaBingo, idpartidabingo=id_partida)
     from django.http import JsonResponse as _JR
@@ -1214,28 +1186,10 @@ def sacar_bola_api(request, id_partida):
     if partida.estadopartida != 'En Juego':
         return _JR({'error': 'La partida no está en curso'}, status=400)
 
-    bolas_str = (partida.bolascantadas or '').replace('B', '').replace(
-        'I', '').replace('N', '').replace('G', '').replace('O', '')
-    bolas_llamadas = [int(b.strip())
-                      for b in bolas_str.split(',') if b.strip().isdigit()]
+    nueva_bola = avanzar_partida_con_bola(id_partida, enviar_evento=True)
 
-    bolas_disponibles = [i for i in range(1, 76) if i not in bolas_llamadas]
-    if not bolas_disponibles:
-        return _JR({'error': 'No hay más bolas disponibles'}, status=400)
-
-    nueva_bola = random.choice(bolas_disponibles)
-    bolas_llamadas.append(nueva_bola)
-
-    partida.ultimabola = nueva_bola
-    partida.bolascantadas = ','.join(map(str, bolas_llamadas))
-    partida.save()
-
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f'bingo_partida_{id_partida}',
-        {'type': 'evento_partida', 'datos': {
-            'evento': 'nueva_bola', 'numero': nueva_bola}}
-    )
+    if nueva_bola is None:
+        return _JR({'status': 'ok', 'bola_extraida': None, 'partida_finalizada': True})
 
     return _JR({'status': 'ok', 'bola_extraida': nueva_bola})
 
@@ -1606,7 +1560,11 @@ def procesar_recarga_saldo(request):
         return _JR({'error': 'Jugador no encontrado'}, status=404)
 
     try:
-        data = json.loads(request.body)
+        if request.content_type and 'application/json' in request.content_type:
+            data = json.loads(request.body.decode('utf-8') or '{}')
+        else:
+            data = request.POST.dict()
+
         monto_str = data.get('monto', '0')
         monto = Decimal(str(monto_str))
     except Exception:
