@@ -52,6 +52,10 @@ $port = Find-FreePort
 Write-Host "🗄️  Aplicando migraciones..." -ForegroundColor Yellow
 & $pythonExe manage.py migrate --run-syncdb 2>&1 | Out-Null
 
+Write-Host "🔧 Cargando datos base de prueba..." -ForegroundColor Yellow
+$env:DJANGO_SETTINGS_MODULE = 'bingo_prueba.settings'
+& $pythonExe -c "import os, django, runpy; os.environ.setdefault('DJANGO_SETTINGS_MODULE','bingo_prueba.settings'); django.setup(); runpy.run_path('init_test_data.py')" 2>&1 | Out-Null
+
 Write-Host "✅ Verificando sistema..." -ForegroundColor Yellow
 $checkResult = & $pythonExe manage.py check 2>&1
 if ($LASTEXITCODE -ne 0) {

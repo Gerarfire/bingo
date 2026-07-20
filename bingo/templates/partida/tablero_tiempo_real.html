@@ -350,9 +350,8 @@
         const cartones = document.querySelectorAll('.carton-dinamico');
         
         cartones.forEach(cartonCol => {
-            const grids = cartonCol.querySelectorAll('.d-grid');
-            if(grids.length < 2) return;
-            const celdas = grids[1].children;
+            const celdas = cartonCol.querySelectorAll('.celda-carton');
+            if (!celdas.length) return;
 
 
 
@@ -364,10 +363,8 @@
                 let faltantes = 0;
                 marcadasRequeridas.forEach(index => {
                     const celda = celdas[index];
-                    // Ahora solo consideramos como válido el centro FREE o una celda MARCADA MANUALMENTE
-                    if (!celda.classList.contains('celda-free') && 
-                            !celda.classList.contains('celda-marcada')) { 
-                            faltantes++;
+                    if (!celda || (!celda.classList.contains('celda-free') && !celda.classList.contains('celda-marcada') && !celda.classList.contains('marcada') && !celda.classList.contains('free'))) {
+                        faltantes++;
                     }
                 });
     
@@ -605,6 +602,7 @@
                     }
                 });
                 verificarCartones();
+                setTimeout(ejecutarAutoMarcado, 100);
             } else {
                 const celdas = document.querySelectorAll(`.celda-carton[data-numero="${numero}"]`);
                 celdas.forEach(celda => {
@@ -613,15 +611,6 @@
                         celda.dataset.numero = numero;
                     }
                 });
-                verificarCartones();
-            }
-
-
-
-            const swAuto = document.getElementById('switch-automarcado');
-            if (swAuto && swAuto.checked) {
-                setTimeout(ejecutarAutoMarcado, 100);
-            } else {
                 verificarCartones();
             }
 
@@ -647,7 +636,7 @@
             
             if (!cartonDiv) return;
             
-            const celda = cartonDiv.querySelector(`.celda-numero-${numero}`);
+            const celda = cartonDiv.querySelector(`.celda-numero-${numero}`) || Array.from(cartonDiv.querySelectorAll('.celda-carton')).find(c => c.dataset.numero == numero);
             
             if (celda) {
                 celda.style.opacity = '1';

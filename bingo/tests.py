@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .models import Bingo, Carton, CartonPartidaBingo, Jugador, PartidaBingo, UnidadMonetaria
-from .services import generar_lote_cartones
+from .services import evaluar_patron_victoria, generar_lote_cartones
 
 
 class SmokeTest(TestCase):
@@ -31,9 +31,21 @@ class CompatibilidadUnidadMonetariaTest(TestCase):
         self.assertEqual(bingo.idunidadmonetaria.simbolomoneda, '$')
 
 
+class EvaluacionPatronesTest(TestCase):
+    def test_patron_tabla_llena_reconoce_carton_completo(self):
+        marcadas = set(range(25))
+        self.assertTrue(evaluar_patron_victoria(marcadas, 'Tabla Llena'))
+
+    def test_patron_esquinas_reconoce_cuatro_esquinas(self):
+        marcadas = {0, 4, 20, 24}
+        self.assertTrue(evaluar_patron_victoria(
+            marcadas, 'Las Cuatro Esquinas'))
+
+
 class FlujoCartonesTest(TestCase):
     def test_partida_expone_valorpremio_y_muestra_cartones(self):
-        unidad = UnidadMonetaria.objects.create(nombremoneda='Dólares', simbolomoneda='$', tipomoneda='Efectivo')
+        unidad = UnidadMonetaria.objects.create(
+            nombremoneda='Dólares', simbolomoneda='$', tipomoneda='Efectivo')
         bingo = Bingo.objects.create(
             titulobingo='Bingo de prueba',
             fechaprogramadabingo=timezone.now(),
@@ -57,11 +69,15 @@ class FlujoCartonesTest(TestCase):
 
         self.assertEqual(partida.valorpremio, Decimal('25.00'))
 
-        carton = Carton.objects.create(codigocarton='TEST-001', matriznumeros={'B': [1, 2, 3, 4, 5], 'I': [6, 7, 8, 9, 10], 'N': [11, 12, 13, 14, 15], 'G': [16, 17, 18, 19, 20], 'O': [21, 22, 23, 24, 25]})
-        jugador = Jugador.objects.create(aliasjugador='TestUser', cedulaidentidadjugador='1234567890', correojugador='test@example.com', saldocreditojugador='100.00')
-        CartonPartidaBingo.objects.create(idjugador=jugador, idpartida=partida, idcarton=carton, preciopagado='10.00', estadocarton='Vendido')
+        carton = Carton.objects.create(codigocarton='TEST-001', matriznumeros={'B': [1, 2, 3, 4, 5], 'I': [
+                                       6, 7, 8, 9, 10], 'N': [11, 12, 13, 14, 15], 'G': [16, 17, 18, 19, 20], 'O': [21, 22, 23, 24, 25]})
+        jugador = Jugador.objects.create(aliasjugador='TestUser', cedulaidentidadjugador='1234567890',
+                                         correojugador='test@example.com', saldocreditojugador='100.00')
+        CartonPartidaBingo.objects.create(
+            idjugador=jugador, idpartida=partida, idcarton=carton, preciopagado='10.00', estadocarton='Vendido')
 
-        user = User.objects.create_user(username='1234567890', password='secret')
+        user = User.objects.create_user(
+            username='1234567890', password='secret')
         self.client.force_login(user)
         response = self.client.get('/mis-cartones/')
 
@@ -72,4 +88,5 @@ class FlujoCartonesTest(TestCase):
         lote = generar_lote_cartones(2)
 
         self.assertEqual(len(lote), 2)
-        self.assertTrue(all('codigo' in carton and 'matriz' in carton for carton in lote))
+        self.assertTrue(
+            all('codigo' in carton and 'matriz' in carton for carton in lote))
