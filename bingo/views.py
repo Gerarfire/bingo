@@ -136,8 +136,54 @@ def obtener_jugador_usuario(user):
     return jugador
 
 
+def consolidar_jugadores_duplicados(idsocio, jugador_preferido=None):
+    if not idsocio:
+        return jugador_preferido
+
+    jugadores = list(
+        Jugador.objects.filter(idsocio=idsocio).order_by('-idjugador')
+    )
+    if len(jugadores) <= 1:
+        return jugadores[0] if jugadores else jugador_preferido
+
+    principal = None
+    if jugador_preferido and jugador_preferido.idsocio_id == idsocio.idsocio:
+        principal = jugador_preferido
+    if principal is None:
+        principal = jugadores[0]
+
+    duplicados = [j for j in jugadores if j.idjugador != principal.idjugador]
+    if not duplicados:
+        return principal
+
+    with transaction.atomic():
+        # Consolidar saldo evita que dinero aprobado en préstamos quede fragmentado.
+        saldo_extra = sum((j.saldocreditojugador or Decimal('0.00'))
+                          for j in duplicados)
+        if saldo_extra:
+            principal.saldocreditojugador = (
+                principal.saldocreditojugador or Decimal('0.00')) + saldo_extra
+            principal.save(update_fields=['saldocreditojugador'])
+
+        ids_duplicados = [j.idjugador for j in duplicados]
+        CartonPartidaBingo.objects.filter(
+            idjugador_id__in=ids_duplicados).update(idjugador=principal)
+        SesionJuego.objects.filter(
+            idjugador_id__in=ids_duplicados).update(idjugador=principal)
+        PartidaBingo.objects.filter(idjugadororganador_id__in=ids_duplicados).update(
+            idjugadororganador=principal)
+        Jugador.objects.filter(idjugador__in=ids_duplicados).delete()
+
+    return principal
+
+
 def obtener_jugador_request(request):
     jugador = obtener_jugador_usuario(request.user)
+    socio = obtener_socio_usuario(request.user)
+
+    if socio:
+        jugador = consolidar_jugadores_duplicados(
+            socio, jugador_preferido=jugador)
 
     if not jugador and request.session.get('jugador_id'):
         jugador = Jugador.objects.filter(
@@ -150,13 +196,15 @@ def obtener_jugador_request(request):
         ).order_by('-idjugador').first()
 
     if not jugador:
-        socio = obtener_socio_usuario(request.user)
         if not socio and request.session.get('socio_id'):
             socio = Socio.objects.filter(
                 idsocio=request.session.get('socio_id')).first()
         if socio:
-            jugador = Jugador.objects.filter(
-                idsocio=socio).order_by('-idjugador').first()
+            jugador = consolidar_jugadores_duplicados(socio)
+
+    if jugador and jugador.idsocio_id:
+        jugador = consolidar_jugadores_duplicados(
+            jugador.idsocio, jugador_preferido=jugador)
 
     if jugador:
         request.session['jugador_id'] = jugador.idjugador
