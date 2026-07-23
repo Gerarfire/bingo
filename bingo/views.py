@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.db.models import Q, Sum
 from django.http import HttpResponse
@@ -66,13 +66,34 @@ except ImportError:  # pragma: no cover - fallback para entornos sin xhtml2pdf
 # Create your views here.
 
 
-def obtener_jugador_usuario(user):
+def obtener_socio_usuario(user):
     if not user:
         return None
 
     socio = Socio.objects.filter(cisocio=user.username).first()
+    if socio:
+        return socio
 
-    filtros = Q(cedulaidentidadjugador=user.username)
+    jugador_por_user = Jugador.objects.filter(
+        Q(cedulaidentidadjugador=user.username)
+        | Q(aliasjugador=user.username)
+        | Q(correojugador__iexact=(user.email or ''))
+    ).select_related('idsocio').order_by('-idjugador').first()
+
+    if jugador_por_user and jugador_por_user.idsocio:
+        return jugador_por_user.idsocio
+
+    return None
+
+
+def obtener_jugador_usuario(user):
+    if not user:
+        return None
+
+    socio = obtener_socio_usuario(user)
+
+    filtros = Q(cedulaidentidadjugador=user.username) | Q(
+        aliasjugador=user.username)
     if getattr(user, 'email', None):
         filtros |= Q(correojugador__iexact=user.email)
     if socio:
@@ -87,10 +108,18 @@ def obtener_jugador_usuario(user):
             jugador.idsocio = socio
             update_fields.append('idsocio')
         if not jugador.cedulaidentidadjugador:
-            jugador.cedulaidentidadjugador = socio.cisocio
-            update_fields.append('cedulaidentidadjugador')
+            cedula_en_uso = Jugador.objects.filter(
+                cedulaidentidadjugador=socio.cisocio
+            ).exclude(idjugador=jugador.idjugador).exists()
+            if not cedula_en_uso:
+                jugador.cedulaidentidadjugador = socio.cisocio
+                update_fields.append('cedulaidentidadjugador')
         if update_fields:
-            jugador.save(update_fields=update_fields)
+            try:
+                jugador.save(update_fields=update_fields)
+            except IntegrityError:
+                # Si hay datos heredados inconsistentes, evitar romper el flujo del socio.
+                pass
 
     return jugador
 
@@ -325,8 +354,11 @@ def registro_jugador(request):
 
         if request.user.is_authenticated:
             try:
-                socio_vinculado = Socio.objects.get(
-                    cisocio=request.user.username)
+                socio_vinculado = obtener_socio_usuario(request.user)
+                if not socio_vinculado:
+                    messages.error(
+                        request, "No se encontró un perfil de socio asociado a tu cuenta.")
+                    return redirect('perfil')
                 correo_actual = (request.user.email or '').strip()
 
                 jugador_existente = Jugador.objects.filter(
@@ -358,8 +390,12 @@ def registro_jugador(request):
                         update_fields.append('idsocio')
 
                     if not jugador_existente.cedulaidentidadjugador:
-                        jugador_existente.cedulaidentidadjugador = socio_vinculado.cisocio
-                        update_fields.append('cedulaidentidadjugador')
+                        cedula_en_uso = Jugador.objects.filter(
+                            cedulaidentidadjugador=socio_vinculado.cisocio
+                        ).exclude(idjugador=jugador_existente.idjugador).exists()
+                        if not cedula_en_uso:
+                            jugador_existente.cedulaidentidadjugador = socio_vinculado.cisocio
+                            update_fields.append('cedulaidentidadjugador')
 
                     if correo_actual and not jugador_existente.correojugador:
                         jugador_existente.correojugador = correo_actual
@@ -395,9 +431,6 @@ def registro_jugador(request):
                 messages.success(
                     request, f"¡Perfil de juego activado como '{alias}'!")
                 return redirect('inicio')
-            except Socio.DoesNotExist:
-                messages.error(
-                    request, "No se encontró un perfil de socio asociado a tu cuenta.")
             except Exception:
                 messages.error(
                     request, "Error al vincular el perfil de juego.")
@@ -602,7 +635,7 @@ def finanzas(request):
 @login_required
 def creditos(request):
     jugador = obtener_jugador_usuario(request.user)
-    socio = Socio.objects.filter(cisocio=request.user.username).first()
+    socio = obtener_socio_usuario(request.user)
 
     if not socio:
         messages.warning(
@@ -668,7 +701,7 @@ def creditos(request):
 @login_required
 def regalos(request):
     jugador = obtener_jugador_usuario(request.user)
-    socio = Socio.objects.filter(cisocio=request.user.username).first()
+    socio = obtener_socio_usuario(request.user)
 
     if not socio:
         messages.warning(
@@ -1463,6 +1496,15 @@ def venta_cartones(request):
     if request.method == 'POST':
         id_bingo = request.POST.get('id_bingo')
         bingo = get_object_or_404(Bingo, idbingo=id_bingo)
+
+        partidas_bingo = PartidaBingo.objects.filter(idbingo=bingo)
+        if not partidas_bingo.exists() or partidas_bingo.exclude(estadopartida='Programada').exists():
+            messages.error(
+                request,
+                "Solo puedes comprar cartones cuando las partidas del bingo estén en sala de espera.",
+            )
+            return redirect('venta_cartones')
+
         cartones_catalogo_ids = request.POST.getlist('cartones_catalogo')
         cartones_generados_json = request.POST.get('cartones_generados', '[]')
 
@@ -1490,7 +1532,7 @@ def venta_cartones(request):
                 request, f"Fondos insuficientes. El total es ${total_pagar} y dispones de ${jugador.saldocreditojugador}.")
             return redirect('venta_cartones')
 
-        partidas = PartidaBingo.objects.filter(idbingo=bingo)
+        partidas = partidas_bingo
         cartones_a_asignar = []
 
         if cartones_catalogo_ids:
@@ -1553,6 +1595,10 @@ def venta_cartones(request):
                                                'Finalizado', 'Cancelado']).filter(partidabingo__isnull=False).distinct()
     bingos_data = []
     for b in bingos_disponibles:
+        partidas_bingo = PartidaBingo.objects.filter(idbingo=b)
+        if not partidas_bingo.exists() or partidas_bingo.exclude(estadopartida='Programada').exists():
+            continue
+
         comprados = CartonPartidaBingo.objects.filter(
             idjugador=jugador, idpartida__idbingo=b).values('idcarton').distinct().count()
         porcentaje_barra = min(int((comprados / 15) * 100), 100)
@@ -1586,6 +1632,13 @@ def ventana_cartones(request, id_partida):
 
     partida = get_object_or_404(PartidaBingo, idpartidabingo=id_partida)
     bingo = partida.idbingo
+
+    if partida.estadopartida != 'Programada':
+        messages.warning(
+            request,
+            "La compra de cartones solo está habilitada en sala de espera.",
+        )
+        return redirect('partidas')
 
     # Contar cartones ya comprados para esta partida
     cartones_ya_comprados = CartonPartidaBingo.objects.filter(
@@ -1635,6 +1688,10 @@ def compra_carton_api(request, id_partida):
 
     partida = get_object_or_404(PartidaBingo, idpartidabingo=id_partida)
     bingo = partida.idbingo
+
+    if partida.estadopartida != 'Programada':
+        from django.http import JsonResponse as _JR
+        return _JR({'error': 'La compra de cartones solo está habilitada en sala de espera'}, status=409)
 
     try:
         data = json.loads(request.body)
@@ -2113,10 +2170,29 @@ def dashboard(request):
                                 "No se pudo aprobar: el socio no tiene cédula válida para vincular el crédito.",
                             )
                         else:
+                            # Prioridad 1: jugador vinculado al socio.
                             jugador = Jugador.objects.select_for_update().filter(
-                                Q(cedulaidentidadjugador=socio.cisocio)
-                                | Q(idsocio=socio)
-                            ).first()
+                                idsocio=socio
+                            ).order_by('-idjugador').first()
+
+                            # Prioridad 2: por cédula del socio (si aún no está vinculado).
+                            if not jugador:
+                                jugador = Jugador.objects.select_for_update().filter(
+                                    cedulaidentidadjugador=socio.cisocio
+                                ).order_by('-idjugador').first()
+
+                            # Si se encontró por cédula y no está vinculado, lo vinculamos.
+                            if jugador and not jugador.idsocio:
+                                jugador.idsocio = socio
+                                jugador.save(update_fields=['idsocio'])
+
+                            # Si existe un jugador con esa cédula pero pertenece a otro socio, evitamos acreditar al perfil equivocado.
+                            if jugador and jugador.idsocio and jugador.idsocio_id != socio.idsocio:
+                                messages.error(
+                                    request,
+                                    "Conflicto de identidad detectado: la cédula del socio está asociada a otro perfil de jugador.",
+                                )
+                                jugador = None
 
                             if not jugador:
                                 correo_usuario = User.objects.filter(
@@ -2149,9 +2225,13 @@ def dashboard(request):
                                 jugador.idsocio = socio
                                 campos_actualizar_jugador.append('idsocio')
                             if not jugador.cedulaidentidadjugador:
-                                jugador.cedulaidentidadjugador = socio.cisocio
-                                campos_actualizar_jugador.append(
-                                    'cedulaidentidadjugador')
+                                cedula_en_uso = Jugador.objects.filter(
+                                    cedulaidentidadjugador=socio.cisocio
+                                ).exclude(idjugador=jugador.idjugador).exists()
+                                if not cedula_en_uso:
+                                    jugador.cedulaidentidadjugador = socio.cisocio
+                                    campos_actualizar_jugador.append(
+                                        'cedulaidentidadjugador')
                             if campos_actualizar_jugador:
                                 jugador.save(
                                     update_fields=campos_actualizar_jugador)
