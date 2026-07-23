@@ -66,6 +66,35 @@ except ImportError:  # pragma: no cover - fallback para entornos sin xhtml2pdf
 # Create your views here.
 
 
+def obtener_jugador_usuario(user):
+    if not user:
+        return None
+
+    socio = Socio.objects.filter(cisocio=user.username).first()
+
+    filtros = Q(cedulaidentidadjugador=user.username)
+    if getattr(user, 'email', None):
+        filtros |= Q(correojugador__iexact=user.email)
+    if socio:
+        filtros |= Q(idsocio=socio)
+
+    jugador = Jugador.objects.filter(filtros).order_by('-idjugador').first()
+
+    # Normaliza vínculo socio<->jugador para evitar bugs de resolución posteriores.
+    if jugador and socio:
+        update_fields = []
+        if not jugador.idsocio:
+            jugador.idsocio = socio
+            update_fields.append('idsocio')
+        if not jugador.cedulaidentidadjugador:
+            jugador.cedulaidentidadjugador = socio.cisocio
+            update_fields.append('cedulaidentidadjugador')
+        if update_fields:
+            jugador.save(update_fields=update_fields)
+
+    return jugador
+
+
 # ==========================================
 # 1. COMUNES (Páginas públicas y base)
 # ==========================================
@@ -76,8 +105,7 @@ def inicio(request):
     saldo_jugador = None
 
     if request.user.is_authenticated and not request.user.is_staff:
-        jugador = Jugador.objects.filter(
-            cedulaidentidadjugador=request.user.username).first()
+        jugador = obtener_jugador_usuario(request.user)
         if jugador:
             es_jugador = True
             saldo_jugador = jugador.saldocreditojugador
@@ -108,6 +136,19 @@ def inicio(request):
                 b.sala_abierta = False
         else:
             b.sala_abierta = False
+
+    ultimas_asignaciones_regalo = AporteSemanal.objects.filter(idregalo__isnull=False).select_related(
+        'idsocio', 'idregalo').order_by('-idaporte')[:200]
+
+    ganador_por_regalo = {}
+    for asignacion in ultimas_asignaciones_regalo:
+        rid = asignacion.idregalo_id
+        if rid not in ganador_por_regalo:
+            ganador_por_regalo[rid] = asignacion
+
+    regalos_lista = list(Regalo.objects.all().order_by('-idregalo'))
+    for regalo in regalos_lista:
+        regalo.asignacion_actual = ganador_por_regalo.get(regalo.idregalo)
 
     contexto = {
         'preguntar_jugador': preguntar_jugador,
@@ -158,8 +199,7 @@ def inicio_sesion(request):
             login(request, usuario_autenticado)
 
             socio = Socio.objects.filter(cisocio=user.username).first()
-            jugador = Jugador.objects.filter(
-                cedulaidentidadjugador=user.username).first()
+            jugador = obtener_jugador_usuario(user)
 
             nombre_mostrar = user.first_name or user.username
             avatar_url = None
@@ -275,30 +315,89 @@ def registro_socio(request):
 
 def registro_jugador(request):
     if request.method == 'POST':
-        alias = request.POST.get('aliasjugador')
+        alias = (request.POST.get('aliasjugador') or '').strip()
+
+        if not alias:
+            messages.error(request, "Debes ingresar un alias para jugar.")
+            return redirect('registro_jugador')
+
+        alias_en_uso = Jugador.objects.filter(aliasjugador__iexact=alias)
 
         if request.user.is_authenticated:
             try:
                 socio_vinculado = Socio.objects.get(
                     cisocio=request.user.username)
-                # Verificar correo duplicado
-                correo_actual = request.user.email
-                if correo_actual and Jugador.objects.filter(correojugador=correo_actual).exists():
+                correo_actual = (request.user.email or '').strip()
+
+                jugador_existente = Jugador.objects.filter(
+                    Q(cedulaidentidadjugador=socio_vinculado.cisocio)
+                    | Q(idsocio=socio_vinculado)
+                ).first()
+
+                if not jugador_existente and correo_actual:
+                    jugador_por_correo = Jugador.objects.filter(
+                        correojugador__iexact=correo_actual
+                    ).first()
+                    if jugador_por_correo and (
+                        jugador_por_correo.idsocio_id == socio_vinculado.idsocio
+                        or jugador_por_correo.cedulaidentidadjugador == socio_vinculado.cisocio
+                    ):
+                        jugador_existente = jugador_por_correo
+
+                if jugador_existente:
+                    if alias_en_uso.exclude(idjugador=jugador_existente.idjugador).exists():
+                        messages.error(
+                            request, "Ese alias ya está en uso. Elige otro diferente.")
+                        return redirect('registro_jugador')
+
+                    jugador_existente.aliasjugador = alias
+                    update_fields = ['aliasjugador']
+
+                    if not jugador_existente.idsocio:
+                        jugador_existente.idsocio = socio_vinculado
+                        update_fields.append('idsocio')
+
+                    if not jugador_existente.cedulaidentidadjugador:
+                        jugador_existente.cedulaidentidadjugador = socio_vinculado.cisocio
+                        update_fields.append('cedulaidentidadjugador')
+
+                    if correo_actual and not jugador_existente.correojugador:
+                        jugador_existente.correojugador = correo_actual
+                        update_fields.append('correojugador')
+
+                    jugador_existente.save(update_fields=update_fields)
+                    request.session['user_nombre'] = alias
+                    messages.success(
+                        request, f"Alias actualizado correctamente a '{alias}'.")
+                    return redirect('inicio')
+
+                if alias_en_uso.exists():
                     messages.error(
-                        request, "El correo ya está registrado en otro perfil de jugador.")
+                        request, "Ese alias ya está en uso. Elige otro diferente.")
                     return redirect('registro_jugador')
+
+                correo_para_jugador = correo_actual or None
+                if correo_actual and Jugador.objects.filter(correojugador__iexact=correo_actual).exists():
+                    correo_para_jugador = None
+                    messages.warning(
+                        request,
+                        "Tu correo ya existe en otro perfil de jugador. Se activó tu alias sin correo para evitar bloqueo.",
+                    )
 
                 Jugador.objects.create(
                     idsocio=socio_vinculado,
                     aliasjugador=alias,
                     nombresjugador=socio_vinculado.primernombresocio,
                     cedulaidentidadjugador=socio_vinculado.cisocio,
-                    correojugador=correo_actual,
+                    correojugador=correo_para_jugador,
                 )
                 request.session['user_nombre'] = alias
                 messages.success(
                     request, f"¡Perfil de juego activado como '{alias}'!")
                 return redirect('inicio')
+            except Socio.DoesNotExist:
+                messages.error(
+                    request, "No se encontró un perfil de socio asociado a tu cuenta.")
             except Exception:
                 messages.error(
                     request, "Error al vincular el perfil de juego.")
@@ -318,8 +417,13 @@ def registro_jugador(request):
                 messages.error(request, "Cédula ya registrada.")
                 return redirect('registro_jugador')
 
+            if alias_en_uso.exists():
+                messages.error(
+                    request, "Ese alias ya está en uso. Elige otro diferente.")
+                return redirect('registro_jugador')
+
             # Validar correo duplicado antes de crear
-            if correo and Jugador.objects.filter(correojugador=correo).exists():
+            if correo and Jugador.objects.filter(correojugador__iexact=correo).exists():
                 messages.error(
                     request, "El correo ya está registrado en otro perfil de jugador.")
                 return redirect('registro_jugador')
@@ -363,8 +467,7 @@ def actualizar_avatar_perfil(request, socio, jugador, nueva_foto):
 def perfil(request):
     user = request.user
     socio = Socio.objects.filter(cisocio=user.username).first()
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=user.username).first()
+    jugador = obtener_jugador_usuario(user)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -498,9 +601,7 @@ def finanzas(request):
 
 @login_required
 def creditos(request):
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username
-    ).first()
+    jugador = obtener_jugador_usuario(request.user)
     socio = Socio.objects.filter(cisocio=request.user.username).first()
 
     if not socio:
@@ -559,15 +660,88 @@ def creditos(request):
         'socio': socio,
         'historial_prestamos': historial_prestamos,
         'saldo_total_pendiente': saldo_total_pendiente,
+        'saldo_credito_jugador': jugador.saldocreditojugador if jugador else Decimal('0.00'),
     }
     return render(request, 'negocio/creditos.html', contexto)
 
 
 @login_required
+def regalos(request):
+    jugador = obtener_jugador_usuario(request.user)
+    socio = Socio.objects.filter(cisocio=request.user.username).first()
+
+    if not socio:
+        messages.warning(
+            request,
+            "Necesitas un perfil de socio para acceder al sistema de regalos.",
+        )
+        return redirect('perfil')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'reclamar_regalo':
+            id_regalo = request.POST.get('id_regalo')
+            try:
+                with transaction.atomic():
+                    regalo = Regalo.objects.select_for_update().get(
+                        idregalo=id_regalo)
+
+                    if regalo.estadoregalo != 'Acumulado':
+                        messages.warning(
+                            request,
+                            "Este regalo ya no está disponible para canje.",
+                        )
+                    else:
+                        referencia = f"CANJE_WEB_{request.user.username}_{uuid.uuid4().hex[:6].upper()}"
+                        AporteSemanal.objects.create(
+                            idsocio=socio,
+                            idregalo=regalo,
+                            idpartida=None,
+                            numerosemana=timezone.now().isocalendar().week,
+                            fechaplanificadadada=timezone.now(),
+                            metodoingreso='Fisico',
+                            referenciaingreso=referencia,
+                            estadoaporte='Al Dia',
+                        )
+
+                        regalo.estadoregalo = 'Sorteado'
+                        regalo.save(update_fields=['estadoregalo'])
+
+                        messages.success(
+                            request,
+                            f"Canje exitoso. Reservaste el regalo '{regalo.nombreregalo}'.",
+                        )
+            except Regalo.DoesNotExist:
+                messages.error(request, "El regalo seleccionado no existe.")
+            except Exception as e:
+                messages.error(
+                    request, f"No se pudo procesar el canje: {str(e)}")
+
+            return redirect('regalos')
+
+    regalos_disponibles = Regalo.objects.filter(
+        estadoregalo='Acumulado').order_by('-fechaultimaactualizacion')
+
+    historial_canje = AporteSemanal.objects.filter(
+        idsocio=socio,
+        idregalo__isnull=False,
+    ).select_related('idregalo').order_by('-fechaplanificadadada')[:40]
+
+    contexto = {
+        'jugador': jugador,
+        'socio': socio,
+        'regalos_disponibles': regalos_disponibles,
+        'historial_canje': historial_canje,
+        'total_regalos_historial': historial_canje.count(),
+    }
+    return render(request, 'cuenta/regalo.html', contexto)
+
+
+@login_required
 def partidas(request):
     """Vista para mostrar todas las partidas activas disponibles para jugar"""
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         return redirect('registro_jugador')
 
@@ -614,22 +788,20 @@ def sala_espera(request, id_partida):
     if not request.user.is_authenticated:
         return render(request, 'cuenta/accceso_denegado.html')
 
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         return redirect('registro_jugador')
 
     partida = get_object_or_404(PartidaBingo, idpartidabingo=id_partida)
 
-    if partida.estadopartida == 'En Juego':
-        return redirect('tablero_tiempo_real', id_partida=partida.idpartidabingo)
+    inicio_programado = partida.idbingo.fechaprogramadabingo
 
-    # Permitir que la partida comience automáticamente cuando el primer jugador entra
-    if partida.estadopartida == 'Programada':
+    if partida.estadopartida == 'Programada' and inicio_programado and timezone.now() >= inicio_programado:
         try:
             channel_layer = get_channel_layer()
             partida.estadopartida = 'En Juego'
-            partida.horainiciopartida = timezone.now()
+            if not partida.horainiciopartida:
+                partida.horainiciopartida = timezone.now()
             partida.save()
 
             bingo_padre = partida.idbingo
@@ -642,18 +814,14 @@ def sala_espera(request, id_partida):
                 {'type': 'evento_partida', 'datos': {
                     'evento': 'estado_cambiado', 'nuevo_estado': 'En Juego'}}
             )
-
-            # Extraer la primera bola automáticamente para arrancar el juego
-            try:
-                avanzar_partida_con_bola(
-                    partida.idpartidabingo, enviar_evento=True)
-            except Exception:
-                pass
-
             return redirect('tablero_tiempo_real', id_partida=partida.idpartidabingo)
         except Exception:
             # Si algo falla, continuar mostrando la sala de espera para no bloquear al usuario
             pass
+
+    if partida.estadopartida == 'En Juego':
+        return redirect('tablero_tiempo_real', id_partida=partida.idpartidabingo)
+
     if partida.estadopartida in ['Verificando', 'Desempate'] and partida.idbingadores:
         ids_vip = [int(i.strip())
                    for i in str(partida.idbingadores).split(',') if i.strip()]
@@ -673,6 +841,7 @@ def sala_espera(request, id_partida):
         'jugador': jugador,
         'jugadores_en_sala': jugadores_en_sala,
         'mensajes_historial': mensajes_historial,
+        'inicio_programado_iso': inicio_programado.isoformat() if inicio_programado else '',
     }
     return render(request, 'partida/sala_espera.html', contexto)
 
@@ -689,8 +858,7 @@ def sala_espera_desempate(request, id_partida):
         sesionjuego__estadosesion='Activa',
     ).distinct().order_by('aliasjugador')
 
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     mensajes_historial = MensajeChat.objects.filter(
         idbingo=partida.idbingo).order_by('fechahora')
 
@@ -705,8 +873,7 @@ def sala_espera_desempate(request, id_partida):
 
 @login_required
 def tablero_tiempo_real(request, id_partida):
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         messages.warning(
             request, "Necesitas un perfil de jugador para entrar a la sala.")
@@ -716,14 +883,6 @@ def tablero_tiempo_real(request, id_partida):
 
     if partida.estadopartida == 'Programada':
         return redirect('sala_espera', id_partida=partida.idpartidabingo)
-
-    # Si la partida está en curso pero aún no se han cantado bolas, generar la primera bola.
-    if partida.estadopartida == 'En Juego' and not (partida.bolascantadas and str(partida.bolascantadas).strip()):
-        try:
-            avanzar_partida_con_bola(
-                partida.idpartidabingo, enviar_evento=True)
-        except Exception:
-            pass
 
     if partida.estadopartida in ['Verificando', 'Desempate']:
         return redirect('sala_espera_desempate', id_partida=partida.idpartidabingo)
@@ -767,6 +926,7 @@ def tablero_tiempo_real(request, id_partida):
         'bolas_llamadas': bolas_llamadas,
         'jugadores_en_sala': jugadores_en_sala,
         'mensajes_historial': mensajes_historial,
+        'horainicio_iso': partida.horainiciopartida.isoformat() if partida.horainiciopartida else timezone.now().isoformat(),
     }
     return render(request, 'partida/tablero_tiempo_real.html', contexto)
 
@@ -780,8 +940,7 @@ def obtener_ip_cliente(request):
 
 @login_required
 def sesion_juego(request, id_partida):
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         return redirect('registro_jugador')
 
@@ -1290,8 +1449,7 @@ def sacar_bola_api(request, id_partida):
 def venta_cartones(request):
     """Alias a la función venta_cartones implementada más abajo"""
     # Esta es la versión simplificada que redirige a la implementación completa
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         messages.warning(
             request, "Debes activar tu perfil de juego para entrar a la tienda.")
@@ -1415,8 +1573,7 @@ def ventana_cartones(request, id_partida):
     """
     Vista para comprar cartones para una partida específica
     """
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         messages.warning(
             request, "Necesitas crear tu perfil de jugador para comprar cartones.")
@@ -1467,8 +1624,7 @@ def compra_carton_api(request, id_partida):
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Método no permitido'}, status=405)
 
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Jugador no encontrado'}, status=404)
@@ -1606,11 +1762,7 @@ def recargar_saldo(request):
     """
     Página para recargar saldo/crédito del jugador
     """
-    jugador = Jugador.objects.filter(
-        Q(cedulaidentidadjugador=request.user.username) |
-        Q(correojugador=request.user.email) |
-        Q(aliasjugador=request.user.username)
-    ).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         messages.warning(request, "Necesitas crear tu perfil de jugador.")
         return redirect('registro_jugador')
@@ -1643,11 +1795,7 @@ def procesar_recarga_saldo(request):
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Método no permitido'}, status=405)
 
-    jugador = Jugador.objects.filter(
-        Q(cedulaidentidadjugador=request.user.username) |
-        Q(correojugador=request.user.email) |
-        Q(aliasjugador=request.user.username)
-    ).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Jugador no encontrado'}, status=404)
@@ -1729,8 +1877,7 @@ def bingo_publico(request):
 
     mis_asignaciones = []
     if request.user.is_authenticated:
-        jugador = Jugador.objects.filter(
-            cedulaidentidadjugador=request.user.username).first()
+        jugador = obtener_jugador_usuario(request.user)
         if jugador:
             mis_asignaciones = CartonPartidaBingo.objects.filter(
                 idjugador=jugador,
@@ -1778,7 +1925,7 @@ def dashboard(request):
                 messages.success(request, "Plataforma eliminada del sistema.")
             elif action == 'crear_bingo':
                 unidad = get_object_or_404(
-                    UnidadMonetaria, idunidadmonetaria=request.POST.get('idunidadmonetaria'))
+                    UnidadMonetaria, idunidad=request.POST.get('idunidadmonetaria'))
                 Bingo.objects.create(idunidadmonetaria=unidad, titulobingo=request.POST.get('titulobingo'), fechaprogramadabingo=request.POST.get('fechaprogramadabingo'), tipobingo=request.POST.get('tipobingo'), lugarbingo=request.POST.get('lugarbingo'), urlsesionbingo=request.POST.get('urlsesionbingo'), preciocarton=request.POST.get(
                     'preciocarton'), premiomayor=request.POST.get('premiomayor'), descripcionpremiomayor=request.POST.get('descripcionpremiomayor'), estadobingo=request.POST.get('estadobingo'), descripcionpremios=request.POST.get('descripcionpremios'), rutaimagenpremiomayor=request.FILES.get('rutaimagenpremiomayor'), urlvideopromocional=request.FILES.get('urlvideopromocional'))
                 messages.success(
@@ -1787,7 +1934,7 @@ def dashboard(request):
             elif action == 'editar_bingo':
                 bingo = Bingo.objects.get(idbingo=request.POST.get('id_bingo'))
                 bingo.idunidadmonetaria = get_object_or_404(
-                    UnidadMonetaria, idunidadmonetaria=request.POST.get('idunidadmonetaria'))
+                    UnidadMonetaria, idunidad=request.POST.get('idunidadmonetaria'))
                 bingo.titulobingo = request.POST.get('titulobingo')
                 bingo.preciocarton = request.POST.get('preciocarton')
                 bingo.premiomayor = request.POST.get('premiomayor')
@@ -1959,17 +2106,56 @@ def dashboard(request):
                     else:
                         socio = prestamo.idsocio
                         jugador = None
-                        if socio and socio.cisocio:
-                            jugador = Jugador.objects.select_for_update().filter(
-                                cedulaidentidadjugador=socio.cisocio
-                            ).first()
 
-                        if not jugador:
+                        if not socio or not socio.cisocio:
                             messages.error(
                                 request,
-                                "No se pudo aprobar: el socio no tiene un jugador vinculado para recibir el crédito.",
+                                "No se pudo aprobar: el socio no tiene cédula válida para vincular el crédito.",
                             )
                         else:
+                            jugador = Jugador.objects.select_for_update().filter(
+                                Q(cedulaidentidadjugador=socio.cisocio)
+                                | Q(idsocio=socio)
+                            ).first()
+
+                            if not jugador:
+                                correo_usuario = User.objects.filter(
+                                    username=socio.cisocio
+                                ).values_list('email', flat=True).first()
+
+                                correo_para_jugador = None
+                                if correo_usuario and not Jugador.objects.filter(correojugador__iexact=correo_usuario).exists():
+                                    correo_para_jugador = correo_usuario
+
+                                alias_base = f"Socio{socio.cisocio[-4:]}"
+                                alias_candidato = alias_base
+                                indice_alias = 1
+                                while Jugador.objects.filter(aliasjugador__iexact=alias_candidato).exists():
+                                    indice_alias += 1
+                                    alias_candidato = f"{alias_base}{indice_alias}"
+
+                                jugador = Jugador.objects.create(
+                                    idsocio=socio,
+                                    nombresjugador=socio.primernombresocio,
+                                    apellidosjugador=socio.primerapellidosocio,
+                                    cedulaidentidadjugador=socio.cisocio,
+                                    correojugador=correo_para_jugador,
+                                    aliasjugador=alias_candidato,
+                                    estadocuentajugador='Activo',
+                                )
+
+                            campos_actualizar_jugador = []
+                            if not jugador.idsocio:
+                                jugador.idsocio = socio
+                                campos_actualizar_jugador.append('idsocio')
+                            if not jugador.cedulaidentidadjugador:
+                                jugador.cedulaidentidadjugador = socio.cisocio
+                                campos_actualizar_jugador.append(
+                                    'cedulaidentidadjugador')
+                            if campos_actualizar_jugador:
+                                jugador.save(
+                                    update_fields=campos_actualizar_jugador)
+
                             monto_base = Decimal(
                                 prestamo.montoprestamosolicitado or 0)
                             if monto_base <= 0:
@@ -2011,43 +2197,122 @@ def dashboard(request):
                         "Este préstamo ya fue procesado anteriormente.",
                     )
                 else:
-                    # Se usa 'En espera' como estado no aprobado según los choices actuales del modelo.
-                    prestamo.estadoprestamo = 'En espera'
+                    prestamo.estadoprestamo = 'Rechazado'
                     prestamo.save(update_fields=['estadoprestamo'])
                     messages.info(
                         request,
-                        f"Préstamo #{prestamo.idprestamo} marcado como no aprobado (En espera).",
+                        f"Préstamo #{prestamo.idprestamo} rechazado correctamente.",
                     )
+            elif action == 'crear_regalo':
+                imagen_regalo = request.FILES.get('urlimagen')
+                if not imagen_regalo:
+                    messages.error(
+                        request,
+                        "Debes subir una imagen para registrar el regalo.",
+                    )
+                else:
+                    Regalo.objects.create(
+                        nombreregalo=request.POST.get('nombreregalo'),
+                        descripcionregalo=request.POST.get(
+                            'descripcionregalo'),
+                        valorregalo=request.POST.get(
+                            'valorregalo') or Decimal('0.00'),
+                        estadoregalo='Acumulado',
+                        urlimagen=imagen_regalo,
+                    )
+                    messages.success(
+                        request,
+                        "Regalo registrado en catálogo y listo para sorteo.",
+                    )
+            elif action == 'sortear_regalo':
+                id_regalo = request.POST.get('id_regalo')
+                with transaction.atomic():
+                    regalo = Regalo.objects.select_for_update().get(
+                        idregalo=id_regalo)
+
+                    if regalo.estadoregalo != 'Acumulado':
+                        messages.warning(
+                            request,
+                            "Este regalo ya fue sorteado o entregado.",
+                        )
+                    else:
+                        candidatos = Socio.objects.filter(
+                            estadosocio='Activo',
+                            jugador__estadocuentajugador='Activo',
+                        ).distinct().order_by('idsocio')
+
+                        if not candidatos.exists():
+                            messages.error(
+                                request,
+                                "No hay socios activos con perfil de jugador para el sorteo.",
+                            )
+                        else:
+                            ganador_socio = random.choice(list(candidatos))
+                            referencia = f"SORTEO_ADMIN_{request.user.username}_{uuid.uuid4().hex[:6].upper()}"
+                            AporteSemanal.objects.create(
+                                idsocio=ganador_socio,
+                                idregalo=regalo,
+                                idpartida=None,
+                                numerosemana=timezone.now().isocalendar().week,
+                                fechaplanificadadada=timezone.now(),
+                                metodoingreso='Fisico',
+                                referenciaingreso=referencia,
+                                estadoaporte='Al Dia',
+                            )
+                            regalo.estadoregalo = 'Sorteado'
+                            regalo.save(update_fields=['estadoregalo'])
+
+                            messages.success(
+                                request,
+                                f"Sorteo exitoso: el regalo '{regalo.nombreregalo}' fue asignado al socio CI {ganador_socio.cisocio}.",
+                            )
+            elif action == 'entregar_regalo':
+                id_regalo = request.POST.get('id_regalo')
+                with transaction.atomic():
+                    regalo = Regalo.objects.select_for_update().get(
+                        idregalo=id_regalo)
+
+                    if regalo.estadoregalo == 'Entregado':
+                        messages.info(
+                            request,
+                            "Este regalo ya se encontraba marcado como entregado.",
+                        )
+                    else:
+                        regalo.estadoregalo = 'Entregado'
+                        regalo.fechaentregaregalo = timezone.now()
+                        regalo.save(
+                            update_fields=['estadoregalo', 'fechaentregaregalo'])
+
+                        asignacion = AporteSemanal.objects.filter(
+                            idregalo=regalo,
+                        ).order_by('-idaporte').first()
+                        if asignacion:
+                            asignacion.fechaentregareal = timezone.now()
+                            asignacion.save(update_fields=['fechaentregareal'])
+
+                        messages.success(
+                            request,
+                            f"Regalo '{regalo.nombreregalo}' marcado como entregado.",
+                        )
             elif action == 'crear_moneda':
-                estado = True if request.POST.get(
-                    'estadomoneda') == 'on' else False
                 UnidadMonetaria.objects.create(
-                    nombremoneda=request.POST.get('nombremoneda'),
-                    tipomoneda=request.POST.get('tipomoneda'),
-                    simbolomoneda=request.POST.get('simbolomoneda'),
-                    tasaconversionmoneda=request.POST.get(
-                        'tasaconversionmoneda'),
-                    estadomoneda=estado
+                    nombre=request.POST.get('nombremoneda'),
+                    simbolo=request.POST.get('simbolomoneda'),
                 )
                 messages.success(
                     request, "Nueva unidad monetaria registrada con éxito.")
 
             elif action == 'editar_moneda':
                 moneda = UnidadMonetaria.objects.get(
-                    idunidadmonetaria=request.POST.get('id_moneda'))
-                moneda.nombremoneda = request.POST.get('nombremoneda')
-                moneda.tipomoneda = request.POST.get('tipomoneda')
-                moneda.simbolomoneda = request.POST.get('simbolomoneda')
-                moneda.tasaconversionmoneda = request.POST.get(
-                    'tasaconversionmoneda')
-                moneda.estadomoneda = True if request.POST.get(
-                    'estadomoneda') == 'on' else False
+                    idunidad=request.POST.get('id_moneda'))
+                moneda.nombre = request.POST.get('nombremoneda')
+                moneda.simbolo = request.POST.get('simbolomoneda')
                 moneda.save()
                 messages.success(request, "Divisa actualizada correctamente.")
 
             elif action == 'eliminar_moneda':
                 UnidadMonetaria.objects.get(
-                    idunidadmonetaria=request.POST.get('id_moneda')).delete()
+                    idunidad=request.POST.get('id_moneda')).delete()
                 messages.success(request, "Divisa eliminada del sistema.")
         except ProtectedError:
             messages.error(
@@ -2095,7 +2360,7 @@ def dashboard(request):
                     datos_graficos['anio']['ganancias'] += monto
 
         # 2. Procesar Socios Registrados
-        socios_db = Socio.objects.select_related('idusuario').all()
+        socios_db = Socio.objects.all()
         for s in socios_db:
             fecha = None
             if hasattr(s, 'idusuario') and s.idusuario and hasattr(s.idusuario, 'date_joined'):
@@ -2151,11 +2416,13 @@ def dashboard(request):
         'pagos': Pago.objects.all().order_by('-fechapago')[:30], 'metodos_pago': MetodoPago.objects.all(),
         'ahorros': Ahorro.objects.all().order_by('-fechaahorro')[:30], 'aportes_semanales': AporteSemanal.objects.all().order_by('-fechaplanificadadada')[:30],
         'bingos': Bingo.objects.all().order_by('-fechaprogramadabingo'), 'partidas': PartidaBingo.objects.all(),
-        'regalos': Regalo.objects.all(), 'cartones': Carton.objects.all().order_by('-idcarton')[:50],
+        'regalos': regalos_lista, 'cartones': Carton.objects.all().order_by('-idcarton')[:50],
         'cartones_en_juego': CartonPartidaBingo.objects.all()[:50], 'plataformas': PlataformaJuego.objects.all(),
         'sesiones_monitoreo': SesionJuego.objects.all().order_by('-fechainiciosesion')[:30], 'config_web': ConfiguracionWeb.objects.first(),
-        'unidades_monetarias': UnidadMonetaria.objects.filter(estadomoneda=True),
+        'unidades_monetarias': UnidadMonetaria.objects.all(),
         'todas_monedas': UnidadMonetaria.objects.all(),
+        'ultimas_asignaciones_regalo': ultimas_asignaciones_regalo,
+        'ganador_por_regalo': ganador_por_regalo,
 
     }
     # Agrega esto al final de tus variables de contexto
@@ -2349,8 +2616,7 @@ def reporte_caja_semanal_pdf(request):
 
 @login_required
 def venta_cartones(request):
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         messages.warning(
             request, "Debes activar tu perfil de juego para entrar a la tienda.")
@@ -2475,8 +2741,7 @@ def venta_cartones(request):
 
 @login_required
 def mis_cartones(request):
-    jugador = Jugador.objects.filter(
-        cedulaidentidadjugador=request.user.username).first()
+    jugador = obtener_jugador_usuario(request.user)
     if not jugador:
         return redirect('registro_jugador')
 
@@ -2521,8 +2786,7 @@ def mis_cartones(request):
 @login_required
 def descargar_cartones_pdf(request, id_bingo):
     if request.method == 'POST':
-        jugador = Jugador.objects.filter(
-            cedulaidentidadjugador=request.user.username).first()
+        jugador = obtener_jugador_usuario(request.user)
         if not jugador:
             messages.error(request, "Perfil no encontrado.")
             return redirect('mis_cartones')

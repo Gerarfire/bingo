@@ -1,0 +1,96 @@
+{% extends 'comunes/base.html' %}
+{% block title %}Zona de Regalos - CoopBingo{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+	<div class="col-12 col-lg-5">
+		<div class="card-minimalista p-4 border h-100 shadow-sm">
+			<h4 class="fw-bold mb-2"><i class="fas fa-gift text-warning me-2"></i>Zona de Regalos</h4>
+			<p class="text-secondary small mb-3">
+				Modo creativo activado: cada regalo acumulado puede canjearse desde aquí y queda reservado para entrega oficial.
+			</p>
+
+			<div class="rounded border bg-body-tertiary p-3 mb-3">
+				<div class="small text-muted">Jugador</div>
+				<div class="fw-bold">{{ jugador.aliasjugador|default:user.username }}</div>
+				<div class="small text-muted">Socio: {{ socio.primernombresocio }} {{ socio.primerapellidosocio }}</div>
+			</div>
+
+			<div class="d-grid gap-2">
+				{% for r in regalos_disponibles %}
+				<div class="border rounded p-3 bg-body-tertiary">
+					<div class="d-flex justify-content-between align-items-start gap-2">
+						<div>
+							<div class="fw-bold">{{ r.nombreregalo }}</div>
+							<div class="small text-muted">{{ r.descripcionregalo|default:"Regalo sorpresa para socios." }}</div>
+							<div class="small text-secondary">Valor estimado: ${{ r.valorregalo }}</div>
+						</div>
+						<span class="badge bg-warning text-dark">{{ r.estadoregalo }}</span>
+					</div>
+
+					<form method="post" class="mt-2" onsubmit="return confirm('¿Deseas canjear este regalo ahora?');">
+						{% csrf_token %}
+						<input type="hidden" name="action" value="reclamar_regalo">
+						<input type="hidden" name="id_regalo" value="{{ r.idregalo }}">
+						<button type="submit" class="btn btn-sm btn-outline-primary w-100 fw-bold">
+							<i class="fas fa-star me-1"></i> Reservar Regalo
+						</button>
+					</form>
+				</div>
+				{% empty %}
+				<div class="alert alert-info mb-0">
+					No hay regalos acumulados por ahora. Vuelve pronto para nuevos sorteos.
+				</div>
+				{% endfor %}
+			</div>
+		</div>
+	</div>
+
+	<div class="col-12 col-lg-7">
+		<div class="card-minimalista p-4 border h-100 shadow-sm">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h4 class="fw-bold mb-0"><i class="fas fa-trophy text-success me-2"></i>Mis Premios</h4>
+				<span class="badge bg-success">{{ total_regalos_historial }} registros</span>
+			</div>
+
+			<div class="table-responsive">
+				<table class="table table-sm align-middle">
+					<thead>
+						<tr>
+							<th>Fecha</th>
+							<th>Regalo</th>
+							<th>Referencia</th>
+							<th>Estado</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for h in historial_canje %}
+						<tr>
+							<td>{{ h.fechaplanificadadada|date:"d/m/Y H:i" }}</td>
+							<td>
+								<div class="fw-semibold">{{ h.idregalo.nombreregalo }}</div>
+								<div class="small text-muted">${{ h.idregalo.valorregalo }}</div>
+							</td>
+							<td class="font-monospace small">{{ h.referenciaingreso|default:"-" }}</td>
+							<td>
+								{% if h.idregalo.estadoregalo == 'Entregado' %}
+								<span class="badge bg-success">Entregado</span>
+								{% elif h.idregalo.estadoregalo == 'Sorteado' %}
+								<span class="badge bg-primary">Reservado</span>
+								{% else %}
+								<span class="badge bg-secondary">Acumulado</span>
+								{% endif %}
+							</td>
+						</tr>
+						{% empty %}
+						<tr>
+							<td colspan="4" class="text-center text-muted py-4">Aún no tienes regalos registrados.</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

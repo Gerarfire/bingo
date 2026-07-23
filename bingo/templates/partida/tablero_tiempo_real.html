@@ -56,6 +56,11 @@
                         <div class="fw-bold text-warning" id="contador-bolas">0 / 75</div>
                         <div class="small text-muted">Siguiente en <span id="contador-tiempo">8</span>s</div>
                     </div>
+                    <div class="text-center bg-body rounded-pill border border-primary px-3 py-2 shadow-sm">
+                        <div class="small fw-bold text-muted">Tiempo Jugado</div>
+                        <div class="fw-bold text-primary" id="cronometro-juego">00:00:00</div>
+                        <div class="small text-muted">Desde el inicio de ronda</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -137,6 +142,28 @@
 </style>
 
 
+
+<script>
+    (function () {
+        const el = document.getElementById('cronometro-juego');
+        if (!el) return;
+
+        const inicioIso = "{{ horainicio_iso }}";
+        const inicio = new Date(inicioIso);
+
+        function tick() {
+            const ahora = new Date();
+            const diffSeg = Math.max(0, Math.floor((ahora - inicio) / 1000));
+            const h = Math.floor(diffSeg / 3600);
+            const m = Math.floor((diffSeg % 3600) / 60);
+            const s = diffSeg % 60;
+            el.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        tick();
+        setInterval(tick, 1000);
+    })();
+</script>
 
 <script>
     // El diccionario de patrones ACTUALIZADO (Soporta múltiples formas de ganar)

@@ -30,6 +30,12 @@
                         <p class="text-secondary mt-3 fs-5">
                             <i class="fas fa-clock me-2" aria-hidden="true"></i> El juego comenzará en cuanto el Administrador lo indique en la mesa central. ¡Mucha suerte!
                         </p>
+                        <div class="mt-3">
+                            <span class="badge bg-primary-subtle text-primary border fs-6 px-3 py-2">
+                                <i class="fas fa-hourglass-start me-1"></i>
+                                Inicia en: <span id="contador-inicio-partida">calculando...</span>
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -86,6 +92,42 @@
     .micro-marcada { background-color: #ffc107; box-shadow: 0 0 3px rgba(255, 193, 7, 0.8); }
     .micro-free { background-color: rgba(255, 193, 7, 0.4); }
 </style>
+
+<script>
+    (function () {
+        const el = document.getElementById('contador-inicio-partida');
+        if (!el) return;
+
+        const inicioIso = "{{ inicio_programado_iso }}";
+        if (!inicioIso) {
+            el.textContent = 'por definir';
+            return;
+        }
+
+        const inicio = new Date(inicioIso);
+
+        function formatearTiempo(restanteMs) {
+            const totalSeg = Math.max(0, Math.floor(restanteMs / 1000));
+            const h = Math.floor(totalSeg / 3600);
+            const m = Math.floor((totalSeg % 3600) / 60);
+            const s = totalSeg % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function tick() {
+            const ahora = new Date();
+            const restante = inicio - ahora;
+            if (restante <= 0) {
+                el.textContent = '00:00:00';
+                return;
+            }
+            el.textContent = formatearTiempo(restante);
+        }
+
+        tick();
+        setInterval(tick, 1000);
+    })();
+</script>
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {

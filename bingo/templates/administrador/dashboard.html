@@ -660,15 +660,64 @@
                         <div class="col-md-5">
                             <div class="card-minimalista p-4 h-100 border-start border-warning border-4">
                                 <h6 class="fw-bold text-secondary mb-3">Catálogo de Premios Físicos (`Regalo`)</h6>
+                                <form method="post" action="{% url 'dashboard' %}" enctype="multipart/form-data" class="row g-2 mb-3 border rounded p-2 bg-body-tertiary">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="crear_regalo">
+                                    <div class="col-12">
+                                        <input type="text" name="nombreregalo" class="form-control form-control-sm" placeholder="Nombre del regalo" required>
+                                    </div>
+                                    <div class="col-12">
+                                        <input type="text" name="descripcionregalo" class="form-control form-control-sm" placeholder="Descripción breve">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number" step="0.01" min="0" name="valorregalo" class="form-control form-control-sm" placeholder="Valor" required>
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="file" name="urlimagen" class="form-control form-control-sm" accept="image/*" required>
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-sm btn-warning w-100 fw-bold">
+                                            <i class="fas fa-gift me-1"></i> Registrar Regalo
+                                        </button>
+                                    </div>
+                                </form>
+
                                 <div class="list-group list-group-flush animate__animated animate__fadeInDown">
                                     {% for r in regalos %}
-                                    <div class="list-group-item bg-transparent px-0 py-2 small d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <div class="fw-bold text-body">{{ r.nombreregalo }}</div>
-                                            <span class="text-muted" style="font-size:0.75rem;">Valor: ${{ r.valorregalo }}</span>
+                                    <div class="list-group-item bg-transparent px-0 py-2 small">
+                                        <div class="d-flex justify-content-between align-items-start gap-2">
+                                            <div>
+                                                <div class="fw-bold text-body">{{ r.nombreregalo }}</div>
+                                                <div class="text-muted" style="font-size:0.75rem;">Valor: ${{ r.valorregalo }}</div>
+                                                {% if r.asignacion_actual %}
+                                                <div class="text-muted" style="font-size:0.75rem;">Ganador: {{ r.asignacion_actual.idsocio.primernombresocio }} {{ r.asignacion_actual.idsocio.primerapellidosocio }} (CI {{ r.asignacion_actual.idsocio.cisocio }})</div>
+                                                {% endif %}
+                                            </div>
+                                            <span class="badge bg-body-secondary text-body border">{{ r.estadoregalo }}</span>
                                         </div>
-                                        <span class="badge bg-body-secondary text-body border">{{ r.estadoregalo }}</span>
+
+                                        <div class="d-flex gap-2 mt-2">
+                                            {% if r.estadoregalo == 'Acumulado' %}
+                                            <form method="post" action="{% url 'dashboard' %}" class="flex-fill" onsubmit="return confirm('¿Sortear este regalo entre socios activos?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="sortear_regalo">
+                                                <input type="hidden" name="id_regalo" value="{{ r.idregalo }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary w-100">Sortear</button>
+                                            </form>
+                                            {% elif r.estadoregalo == 'Sorteado' %}
+                                            <form method="post" action="{% url 'dashboard' %}" class="flex-fill" onsubmit="return confirm('¿Confirmar entrega física de este regalo?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="entregar_regalo">
+                                                <input type="hidden" name="id_regalo" value="{{ r.idregalo }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-success w-100">Marcar Entregado</button>
+                                            </form>
+                                            {% else %}
+                                            <button type="button" class="btn btn-sm btn-success w-100" disabled>Entregado</button>
+                                            {% endif %}
+                                        </div>
                                     </div>
+                                    {% empty %}
+                                    <div class="text-muted small py-2">No hay regalos cargados todavía.</div>
                                     {% endfor %}
                                 </div>
                             </div>

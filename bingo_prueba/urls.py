@@ -32,6 +32,7 @@ urlpatterns = [
     path('dashboard-admin/', views.dashboard, name='dashboard_admin'),
     path('finanzas/', views.finanzas, name='finanzas'),
     path('creditos/', views.creditos, name='creditos'),
+    path('regalos/', views.regalos, name='regalos'),
     path('partidas/', views.partidas, name='partidas'),
     path('sala-espera/<int:id_partida>/',
          views.sala_espera, name='sala_espera'),
