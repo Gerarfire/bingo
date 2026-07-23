@@ -778,22 +778,16 @@ def partidas(request):
     if not jugador:
         return redirect('registro_jugador')
 
-    ahora = timezone.now()
-
-    # Obtener partidas que están abiertas (Programada o En Juego)
-    partidas_en_juego = PartidaBingo.objects.filter(
-        estadopartida__in=['Programada', 'En Juego']
-    ).select_related('idbingo', 'idbingo__idunidadmonetaria').order_by('-estadopartida', 'idpartidabingo')
-
-    # Filtrar solo las que tienen la sala abierta (30 min antes de hora programada)
-    partidas_filtradas = []
-
-    for partida in partidas_en_juego:
-        if partida.idbingo.fechaprogramadabingo:
-            hora_apertura = partida.idbingo.fechaprogramadabingo - \
-                timedelta(minutes=30)
-            if ahora >= hora_apertura:
-                partidas_filtradas.append(partida)
+    # Mostrar más salas de espera: incluir TODAS las Programadas,
+    # y también las En Juego que sigan activas.
+    partidas_filtradas = list(
+        PartidaBingo.objects.filter(
+            estadopartida__in=['Programada', 'En Juego'],
+            idbingo__estadobingo__in=['Programado', 'En Curso'],
+        )
+        .select_related('idbingo', 'idbingo__idunidadmonetaria')
+        .order_by('estadopartida', 'idbingo__fechaprogramadabingo', 'idpartidabingo')
+    )
 
     # Asignar datos adicionales a cada partida
     for partida in partidas_filtradas:
@@ -826,6 +820,10 @@ def sala_espera(request, id_partida):
         return redirect('registro_jugador')
 
     partida = get_object_or_404(PartidaBingo, idpartidabingo=id_partida)
+
+    if partida.estadopartida == 'Finalizada':
+        messages.info(request, "Esta sala ya finalizó y fue retirada.")
+        return redirect('partidas')
 
     inicio_programado = partida.idbingo.fechaprogramadabingo
 
