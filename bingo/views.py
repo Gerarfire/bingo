@@ -83,6 +83,18 @@ def obtener_socio_usuario(user):
     if jugador_por_user and jugador_por_user.idsocio:
         return jugador_por_user.idsocio
 
+    if jugador_por_user and not jugador_por_user.idsocio and jugador_por_user.cedulaidentidadjugador:
+        socio_por_cedula = Socio.objects.filter(
+            cisocio=jugador_por_user.cedulaidentidadjugador
+        ).first()
+        if socio_por_cedula:
+            jugador_por_user.idsocio = socio_por_cedula
+            try:
+                jugador_por_user.save(update_fields=['idsocio'])
+            except Exception:
+                pass
+            return socio_por_cedula
+
     return None
 
 
@@ -120,6 +132,36 @@ def obtener_jugador_usuario(user):
             except IntegrityError:
                 # Si hay datos heredados inconsistentes, evitar romper el flujo del socio.
                 pass
+
+    return jugador
+
+
+def obtener_jugador_request(request):
+    jugador = obtener_jugador_usuario(request.user)
+
+    if not jugador and request.session.get('jugador_id'):
+        jugador = Jugador.objects.filter(
+            idjugador=request.session.get('jugador_id')
+        ).first()
+
+    if not jugador and request.session.get('socio_id'):
+        jugador = Jugador.objects.filter(
+            idsocio_id=request.session.get('socio_id')
+        ).order_by('-idjugador').first()
+
+    if not jugador:
+        socio = obtener_socio_usuario(request.user)
+        if not socio and request.session.get('socio_id'):
+            socio = Socio.objects.filter(
+                idsocio=request.session.get('socio_id')).first()
+        if socio:
+            jugador = Jugador.objects.filter(
+                idsocio=socio).order_by('-idjugador').first()
+
+    if jugador:
+        request.session['jugador_id'] = jugador.idjugador
+        if jugador.idsocio_id:
+            request.session['socio_id'] = jugador.idsocio_id
 
     return jugador
 
@@ -244,6 +286,8 @@ def inicio_sesion(request):
 
             request.session['user_nombre'] = nombre_mostrar
             request.session['avatar_url'] = avatar_url
+            request.session['socio_id'] = socio.idsocio if socio else None
+            request.session['jugador_id'] = jugador.idjugador if jugador else None
 
             messages.success(
                 request, f'¡Bienvenido de vuelta, {nombre_mostrar}!')
@@ -316,7 +360,7 @@ def registro_socio(request):
                     request, "Error crítico: No hay 'Tipos de Socio' configurados.")
                 return redirect('registro_socio')
 
-            Socio.objects.create(
+            socio_nuevo = Socio.objects.create(
                 idtiposocio=tipo_base,
                 primernombresocio=primer_nombre,
                 segundonombresocio=segundo_nombre,
@@ -332,6 +376,8 @@ def registro_socio(request):
             login(request, user)
             request.session['preguntar_jugador'] = True
             request.session['user_nombre'] = primer_nombre
+            request.session['socio_id'] = socio_nuevo.idsocio
+            request.session['jugador_id'] = None
             return redirect('inicio')
         except Exception as e:
             if 'user' in locals() and user.id:
@@ -403,6 +449,8 @@ def registro_jugador(request):
 
                     jugador_existente.save(update_fields=update_fields)
                     request.session['user_nombre'] = alias
+                    request.session['jugador_id'] = jugador_existente.idjugador
+                    request.session['socio_id'] = socio_vinculado.idsocio
                     messages.success(
                         request, f"Alias actualizado correctamente a '{alias}'.")
                     return redirect('inicio')
@@ -420,7 +468,7 @@ def registro_jugador(request):
                         "Tu correo ya existe en otro perfil de jugador. Se activó tu alias sin correo para evitar bloqueo.",
                     )
 
-                Jugador.objects.create(
+                jugador_creado = Jugador.objects.create(
                     idsocio=socio_vinculado,
                     aliasjugador=alias,
                     nombresjugador=socio_vinculado.primernombresocio,
@@ -428,6 +476,8 @@ def registro_jugador(request):
                     correojugador=correo_para_jugador,
                 )
                 request.session['user_nombre'] = alias
+                request.session['jugador_id'] = jugador_creado.idjugador
+                request.session['socio_id'] = socio_vinculado.idsocio
                 messages.success(
                     request, f"¡Perfil de juego activado como '{alias}'!")
                 return redirect('inicio')
@@ -466,13 +516,15 @@ def registro_jugador(request):
                     username=cedula, email=correo, password=password,
                     first_name=nombres, last_name=apellidos,
                 )
-                Jugador.objects.create(
+                jugador_creado = Jugador.objects.create(
                     aliasjugador=alias, nombresjugador=nombres,
                     apellidosjugador=apellidos, cedulaidentidadjugador=cedula,
                     correojugador=correo,
                 )
                 login(request, user)
                 request.session['user_nombre'] = alias
+                request.session['jugador_id'] = jugador_creado.idjugador
+                request.session['socio_id'] = None
                 messages.success(
                     request, f"¡Bienvenido a la sala de juegos, {alias}!")
                 return redirect('inicio')
@@ -499,8 +551,19 @@ def actualizar_avatar_perfil(request, socio, jugador, nueva_foto):
 @login_required
 def perfil(request):
     user = request.user
-    socio = Socio.objects.filter(cisocio=user.username).first()
+    socio = obtener_socio_usuario(user)
+    if not socio and request.session.get('socio_id'):
+        socio = Socio.objects.filter(
+            idsocio=request.session.get('socio_id')).first()
     jugador = obtener_jugador_usuario(user)
+    if not jugador and request.session.get('jugador_id'):
+        jugador = Jugador.objects.filter(
+            idjugador=request.session.get('jugador_id')).first()
+
+    if socio:
+        request.session['socio_id'] = socio.idsocio
+    if jugador:
+        request.session['jugador_id'] = jugador.idjugador
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -637,6 +700,23 @@ def creditos(request):
     jugador = obtener_jugador_usuario(request.user)
     socio = obtener_socio_usuario(request.user)
 
+    if not socio and request.session.get('socio_id'):
+        socio = Socio.objects.filter(
+            idsocio=request.session.get('socio_id')).first()
+
+    if not jugador and request.session.get('jugador_id'):
+        jugador = Jugador.objects.filter(
+            idjugador=request.session.get('jugador_id')).first()
+
+    if not jugador and socio:
+        jugador = Jugador.objects.filter(
+            idsocio=socio).order_by('-idjugador').first()
+
+    if socio:
+        request.session['socio_id'] = socio.idsocio
+    if jugador:
+        request.session['jugador_id'] = jugador.idjugador
+
     if not socio:
         messages.warning(
             request,
@@ -702,6 +782,23 @@ def creditos(request):
 def regalos(request):
     jugador = obtener_jugador_usuario(request.user)
     socio = obtener_socio_usuario(request.user)
+
+    if not socio and request.session.get('socio_id'):
+        socio = Socio.objects.filter(
+            idsocio=request.session.get('socio_id')).first()
+
+    if not jugador and request.session.get('jugador_id'):
+        jugador = Jugador.objects.filter(
+            idjugador=request.session.get('jugador_id')).first()
+
+    if not jugador and socio:
+        jugador = Jugador.objects.filter(
+            idsocio=socio).order_by('-idjugador').first()
+
+    if socio:
+        request.session['socio_id'] = socio.idsocio
+    if jugador:
+        request.session['jugador_id'] = jugador.idjugador
 
     if not socio:
         messages.warning(
@@ -1480,7 +1577,7 @@ def sacar_bola_api(request, id_partida):
 def venta_cartones(request):
     """Alias a la función venta_cartones implementada más abajo"""
     # Esta es la versión simplificada que redirige a la implementación completa
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         messages.warning(
             request, "Debes activar tu perfil de juego para entrar a la tienda.")
@@ -1617,7 +1714,7 @@ def ventana_cartones(request, id_partida):
     """
     Vista para comprar cartones para una partida específica
     """
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         messages.warning(
             request, "Necesitas crear tu perfil de jugador para comprar cartones.")
@@ -1675,7 +1772,7 @@ def compra_carton_api(request, id_partida):
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Método no permitido'}, status=405)
 
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Jugador no encontrado'}, status=404)
@@ -1817,7 +1914,7 @@ def recargar_saldo(request):
     """
     Página para recargar saldo/crédito del jugador
     """
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         messages.warning(request, "Necesitas crear tu perfil de jugador.")
         return redirect('registro_jugador')
@@ -1850,7 +1947,7 @@ def procesar_recarga_saldo(request):
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Método no permitido'}, status=405)
 
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         from django.http import JsonResponse as _JR
         return _JR({'error': 'Jugador no encontrado'}, status=404)
@@ -2694,7 +2791,7 @@ def reporte_caja_semanal_pdf(request):
 
 @login_required
 def venta_cartones(request):
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         messages.warning(
             request, "Debes activar tu perfil de juego para entrar a la tienda.")
@@ -2708,6 +2805,15 @@ def venta_cartones(request):
     if request.method == 'POST':
         id_bingo = request.POST.get('id_bingo')
         bingo = get_object_or_404(Bingo, idbingo=id_bingo)
+
+        partidas_bingo = PartidaBingo.objects.filter(idbingo=bingo)
+        if not partidas_bingo.exists() or partidas_bingo.exclude(estadopartida='Programada').exists():
+            messages.error(
+                request,
+                "Solo puedes comprar cartones cuando las partidas del bingo estén en sala de espera.",
+            )
+            return redirect('venta_cartones')
+
         cartones_catalogo_ids = request.POST.getlist('cartones_catalogo')
         cartones_generados_json = request.POST.get('cartones_generados', '[]')
 
@@ -2735,7 +2841,7 @@ def venta_cartones(request):
                 request, f"Fondos insuficientes. El total es ${total_pagar} y dispones de ${jugador.saldocreditojugador}.")
             return redirect('venta_cartones')
 
-        partidas = PartidaBingo.objects.filter(idbingo=bingo)
+        partidas = partidas_bingo
         cartones_a_asignar = []
 
         if cartones_catalogo_ids:
@@ -2802,6 +2908,10 @@ def venta_cartones(request):
                                                'Finalizado', 'Cancelado']).filter(partidabingo__isnull=False).distinct()
     bingos_data = []
     for b in bingos_disponibles:
+        partidas_bingo = PartidaBingo.objects.filter(idbingo=b)
+        if not partidas_bingo.exists() or partidas_bingo.exclude(estadopartida='Programada').exists():
+            continue
+
         comprados = CartonPartidaBingo.objects.filter(
             idjugador=jugador, idpartida__idbingo=b).values('idcarton').distinct().count()
         porcentaje_barra = min(int((comprados / 15) * 100), 100)
@@ -2819,7 +2929,7 @@ def venta_cartones(request):
 
 @login_required
 def mis_cartones(request):
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         return redirect('registro_jugador')
 
@@ -2864,7 +2974,7 @@ def mis_cartones(request):
 @login_required
 def descargar_cartones_pdf(request, id_bingo):
     if request.method == 'POST':
-        jugador = obtener_jugador_usuario(request.user)
+        jugador = obtener_jugador_request(request)
         if not jugador:
             messages.error(request, "Perfil no encontrado.")
             return redirect('mis_cartones')
