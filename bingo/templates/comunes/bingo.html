@@ -75,6 +75,17 @@
                         <a href="{% url 'venta_cartones' %}" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">
                             Comprar Cartones <i class="fas fa-arrow-right ms-2"></i>
                         </a>
+                        {% if user.is_staff %}
+                            {% if bingo.id_partida_a_entrar %}
+                            <a href="{% url 'tablero_admin' bingo.id_partida_a_entrar %}" class="btn btn-outline-danger w-100 fw-bold py-2 shadow-sm">
+                                <i class="fas fa-user-shield me-2"></i> Administrar Esta Ronda
+                            </a>
+                            {% else %}
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-danger w-100 fw-bold py-2 shadow-sm">
+                                <i class="fas fa-user-shield me-2"></i> Ir al Panel de Administración
+                            </a>
+                            {% endif %}
+                        {% endif %}
                     </div>
                 </div>
             </div>

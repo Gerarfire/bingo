@@ -14,6 +14,14 @@
 {% block content %}
 <div class="container-fluid py-4 bg-body-tertiary min-vh-100">
 
+    {% if user.is_staff %}
+    <div class="d-flex justify-content-end mb-3">
+        <a href="{% url 'tablero_admin' partida.idpartidabingo %}" class="btn btn-danger fw-bold shadow-sm rounded-pill px-4">
+            <i class="fas fa-user-shield me-2"></i> Panel de Administrador
+        </a>
+    </div>
+    {% endif %}
+
     <form method="post" style="display:none;">
         {% csrf_token %}
     </form>

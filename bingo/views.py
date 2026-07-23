@@ -745,7 +745,7 @@ def finanzas(request):
 
 @login_required
 def creditos(request):
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     socio = obtener_socio_usuario(request.user)
 
     if not socio and request.session.get('socio_id'):
@@ -1049,7 +1049,7 @@ def sala_espera_desempate(request, id_partida):
 
 @login_required
 def tablero_tiempo_real(request, id_partida):
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         messages.warning(
             request, "Necesitas un perfil de jugador para entrar a la sala.")
@@ -1116,7 +1116,7 @@ def obtener_ip_cliente(request):
 
 @login_required
 def sesion_juego(request, id_partida):
-    jugador = obtener_jugador_usuario(request.user)
+    jugador = obtener_jugador_request(request)
     if not jugador:
         return redirect('registro_jugador')
 
@@ -2077,7 +2077,7 @@ def bingo_publico(request):
 
     mis_asignaciones = []
     if request.user.is_authenticated:
-        jugador = obtener_jugador_usuario(request.user)
+        jugador = obtener_jugador_request(request)
         if jugador:
             mis_asignaciones = CartonPartidaBingo.objects.filter(
                 idjugador=jugador,
@@ -2378,6 +2378,11 @@ def dashboard(request):
                             if campos_actualizar_jugador:
                                 jugador.save(
                                     update_fields=campos_actualizar_jugador)
+
+                            jugador = consolidar_jugadores_duplicados(
+                                socio,
+                                jugador_preferido=jugador,
+                            )
 
                             monto_base = Decimal(
                                 prestamo.montoprestamosolicitado or 0)
