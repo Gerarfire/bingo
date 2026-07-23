@@ -50,6 +50,7 @@
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 rounded-3" aria-labelledby="userDropdown">
                         <li><a class="dropdown-item fw-medium py-2" href="{% url 'perfil' %}"><i class="fas fa-user-circle me-2 text-primary"></i> Mi Perfil y Cuenta</a></li>
                         <li><a class="dropdown-item fw-medium py-2" href="{% url 'recargar_saldo' %}"><i class="fas fa-wallet me-2 text-success"></i> Recargar Saldo</a></li>
+                        <li><a class="dropdown-item fw-medium py-2" href="{% url 'creditos' %}"><i class="fas fa-hand-holding-usd me-2 text-danger"></i> Créditos y Préstamos</a></li>
                         <li><a class="dropdown-item fw-medium py-2" href="{% url 'mis_cartones' %}"><i class="fas fa-ticket-alt me-2 text-warning"></i> Mis Cartones</a></li>
                         <li>
                             {% if user.is_staff %}

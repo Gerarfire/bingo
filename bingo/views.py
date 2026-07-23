@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from asgiref.sync import async_to_sync
 from django.contrib import messages
-from django.contrib.auth import login, logout, update_session_auth_hash
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -142,6 +142,21 @@ def inicio_sesion(request):
                 messages.error(
                     request, 'Esta cuenta ha sido desactivada o suspendida del sistema.')
                 return redirect('login')
+
+            usuario_autenticado = authenticate(
+                request,
+                username=user.username,
+                password=password,
+            )
+            if not usuario_autenticado:
+                messages.error(
+                    request,
+                    'No fue posible iniciar sesión con este usuario. Intenta nuevamente.',
+                )
+                return redirect('login')
+
+            login(request, usuario_autenticado)
+
             socio = Socio.objects.filter(cisocio=user.username).first()
             jugador = Jugador.objects.filter(
                 cedulaidentidadjugador=user.username).first()
@@ -154,8 +169,9 @@ def inicio_sesion(request):
                 if jugador.avatarjugador:
                     avatar_url = jugador.avatarjugador.url
 
-            if socio and not avatar_url and socio.fotosocio:
-                avatar_url = socio.fotosocio.url
+            foto_socio = getattr(socio, 'fotosocio', None) if socio else None
+            if foto_socio and not avatar_url:
+                avatar_url = foto_socio.url
 
             request.session['user_nombre'] = nombre_mostrar
             request.session['avatar_url'] = avatar_url
@@ -478,6 +494,73 @@ def descargar_cartones_pdf(request): return redirect('mis_cartones')
 
 def finanzas(request):
     return render(request, 'negocio/control_aportes.html')
+
+
+@login_required
+def creditos(request):
+    jugador = Jugador.objects.filter(
+        cedulaidentidadjugador=request.user.username
+    ).first()
+    socio = Socio.objects.filter(cisocio=request.user.username).first()
+
+    if not socio:
+        messages.warning(
+            request,
+            "Necesitas estar registrado como socio para solicitar préstamos.",
+        )
+        return redirect('perfil')
+
+    if request.method == 'POST':
+        try:
+            monto_solicitado = Decimal(request.POST.get('monto', '0') or '0')
+            cuotas = int(request.POST.get('cuotas', '1') or '1')
+            tasa = Decimal(request.POST.get('tasa', '12.00') or '12.00')
+
+            if monto_solicitado <= 0:
+                raise ValueError('El monto debe ser mayor a 0.')
+            if cuotas < 1:
+                raise ValueError(
+                    'El número de cuotas debe ser mayor o igual a 1.')
+            if tasa < 0:
+                raise ValueError('La tasa no puede ser negativa.')
+
+            interes = (monto_solicitado * tasa) / Decimal('100')
+            total_pagar = monto_solicitado + interes
+
+            Prestamo.objects.create(
+                idsocio=socio,
+                montoprestamosolicitado=monto_solicitado,
+                tasainteres=tasa,
+                montototalpagar=total_pagar,
+                saldopendiente=total_pagar,
+                numerocuotas=cuotas,
+                fechasolicitud=timezone.now().date(),
+                fechavencimiento=timezone.now().date() + timedelta(days=30 * cuotas),
+                estadoprestamo='Solicitado',
+            )
+
+            messages.success(
+                request,
+                "Tu solicitud de préstamo fue registrada correctamente y está en revisión.",
+            )
+            return redirect('creditos')
+        except Exception as e:
+            messages.error(
+                request, f"No se pudo registrar la solicitud: {str(e)}")
+
+    historial_prestamos = Prestamo.objects.filter(
+        idsocio=socio).order_by('-fechasolicitud')
+    saldo_total_pendiente = historial_prestamos.exclude(
+        estadoprestamo='Liquidado'
+    ).aggregate(total=Sum('saldopendiente'))['total'] or Decimal('0.00')
+
+    contexto = {
+        'jugador': jugador,
+        'socio': socio,
+        'historial_prestamos': historial_prestamos,
+        'saldo_total_pendiente': saldo_total_pendiente,
+    }
+    return render(request, 'negocio/creditos.html', contexto)
 
 
 @login_required
@@ -1189,7 +1272,16 @@ def sacar_bola_api(request, id_partida):
     nueva_bola = avanzar_partida_con_bola(id_partida, enviar_evento=True)
 
     if nueva_bola is None:
-        return _JR({'status': 'ok', 'bola_extraida': None, 'partida_finalizada': True})
+        siguiente = PartidaBingo.objects.filter(
+            idbingo=partida.idbingo,
+            idpartidabingo__gt=partida.idpartidabingo,
+        ).order_by('idpartidabingo').first()
+        return _JR({
+            'status': 'ok',
+            'bola_extraida': None,
+            'partida_finalizada': True,
+            'id_siguiente_partida': siguiente.idpartidabingo if siguiente else None,
+        })
 
     return _JR({'status': 'ok', 'bola_extraida': nueva_bola})
 
@@ -1437,11 +1529,12 @@ def compra_carton_api(request, id_partida):
     if cantidad_nueva > 0:
         nuevos_cartones = []
         for i in range(cantidad_nueva):
-            matriz = generar_lote_cartones(1)[0]
+            matriz_info = generar_lote_cartones(1)[0]
+            matriz = matriz_info.get('matriz', {})
             codigo = f"GEN_{partida.idpartidabingo}_{jugador.idjugador}_{i}_{uuid.uuid4().hex[:8]}"
             nuevo_carton = Carton(
                 codigocarton=codigo,
-                matriznumeros=json.dumps(matriz),
+                matriznumeros=matriz,
                 esmaestro=False
             )
             nuevos_cartones.append(nuevo_carton)
@@ -1851,6 +1944,80 @@ def dashboard(request):
                     'cedula'), request.POST.get('correo'), request.POST.get('estado'), request.POST.get('password_nueva'))
                 messages.success(
                     request, f"Perfil del jugador actualizado correctamente.")
+            elif action == 'aprobar_prestamo':
+                id_prestamo = request.POST.get('id_prestamo')
+                with transaction.atomic():
+                    prestamo = Prestamo.objects.select_for_update().select_related('idsocio').get(
+                        idprestamo=id_prestamo
+                    )
+
+                    if prestamo.estadoprestamo != 'Solicitado':
+                        messages.warning(
+                            request,
+                            "Este préstamo ya fue procesado anteriormente.",
+                        )
+                    else:
+                        socio = prestamo.idsocio
+                        jugador = None
+                        if socio and socio.cisocio:
+                            jugador = Jugador.objects.select_for_update().filter(
+                                cedulaidentidadjugador=socio.cisocio
+                            ).first()
+
+                        if not jugador:
+                            messages.error(
+                                request,
+                                "No se pudo aprobar: el socio no tiene un jugador vinculado para recibir el crédito.",
+                            )
+                        else:
+                            monto_base = Decimal(
+                                prestamo.montoprestamosolicitado or 0)
+                            if monto_base <= 0:
+                                messages.error(
+                                    request,
+                                    "No se pudo aprobar: el monto solicitado no es válido.",
+                                )
+                            else:
+                                tasa = Decimal(prestamo.tasainteres or 0)
+                                interes = (monto_base * tasa) / Decimal('100')
+                                total_pagar = prestamo.montototalpagar or (
+                                    monto_base + interes)
+
+                                prestamo.montototalpagar = total_pagar
+                                prestamo.saldopendiente = total_pagar
+                                prestamo.estadoprestamo = 'Aprobado'
+                                if not prestamo.fechasolicitud:
+                                    prestamo.fechasolicitud = timezone.now().date()
+                                if not prestamo.fechavencimiento:
+                                    cuotas = int(prestamo.numerocuotas or 1)
+                                    prestamo.fechavencimiento = timezone.now().date() + timedelta(days=30 * cuotas)
+                                prestamo.save()
+
+                                jugador.saldocreditojugador += monto_base
+                                jugador.save(update_fields=[
+                                             'saldocreditojugador'])
+
+                                messages.success(
+                                    request,
+                                    f"Préstamo #{prestamo.idprestamo} aprobado y acreditado: ${monto_base} a {jugador.aliasjugador or jugador.cedulaidentidadjugador}.",
+                                )
+
+            elif action == 'rechazar_prestamo':
+                id_prestamo = request.POST.get('id_prestamo')
+                prestamo = Prestamo.objects.get(idprestamo=id_prestamo)
+                if prestamo.estadoprestamo != 'Solicitado':
+                    messages.warning(
+                        request,
+                        "Este préstamo ya fue procesado anteriormente.",
+                    )
+                else:
+                    # Se usa 'En espera' como estado no aprobado según los choices actuales del modelo.
+                    prestamo.estadoprestamo = 'En espera'
+                    prestamo.save(update_fields=['estadoprestamo'])
+                    messages.info(
+                        request,
+                        f"Préstamo #{prestamo.idprestamo} marcado como no aprobado (En espera).",
+                    )
             elif action == 'crear_moneda':
                 estado = True if request.POST.get(
                     'estadomoneda') == 'on' else False

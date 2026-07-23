@@ -260,6 +260,7 @@
                                         <th>Total a Pagar</th>
                                         <th>Saldo Vivo</th>
                                         <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -271,6 +272,30 @@
                                         <td class="fw-bold text-body">${{ p.montototalpagar }}</td>
                                         <td class="text-danger fw-bold">${{ p.saldopendiente }}</td>
                                         <td><span class="badge bg-body-secondary text-body border">{{ p.estadoprestamo }}</span></td>
+                                        <td class="text-end">
+                                            {% if p.estadoprestamo == 'Solicitado' %}
+                                            <div class="d-flex justify-content-end gap-2">
+                                                <form method="post" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="aprobar_prestamo">
+                                                    <input type="hidden" name="id_prestamo" value="{{ p.idprestamo }}">
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Aprobar y acreditar">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="post" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="rechazar_prestamo">
+                                                    <input type="hidden" name="id_prestamo" value="{{ p.idprestamo }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Rechazar solicitud">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            {% else %}
+                                            <span class="text-muted small">Sin acción</span>
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>

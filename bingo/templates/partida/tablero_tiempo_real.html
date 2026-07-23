@@ -312,8 +312,7 @@
 
             // FIX: Extraer el código del cartón leyendo el texto naranja de la cabecera
             const cartonDiv = celda.closest('.carton-dinamico');
-            const spanCodigo = cartonDiv ? cartonDiv.querySelector('.text-warning') : null;
-            const codigoCarton = spanCodigo ? spanCodigo.innerText.trim() : null;
+            const codigoCarton = cartonDiv ? cartonDiv.dataset.cartonCodigo : null;
 
             marcarCeldaLocal(celda, numero);
 
@@ -390,8 +389,9 @@
             // Busca el que esté más cerca de ganar para la alerta global
             if (faltantesMinimos < menorDistancia) {
                 menorDistancia = faltantesMinimos;
-                const spanCodigo = cartonCol.querySelector('.text-warning');
-                if(spanCodigo) codigoCartonGanador = spanCodigo.innerText.trim();
+                if (cartonCol.dataset.cartonCodigo) {
+                    codigoCartonGanador = cartonCol.dataset.cartonCodigo;
+                }
             }
         });
 
@@ -488,8 +488,7 @@
                     marcarCeldaLocal(celda, numero);
 
                     const cartonDiv = celda.closest('.carton-dinamico');
-                    const spanCodigo = cartonDiv ? cartonDiv.querySelector('.text-warning') : null;
-                    const codigoCarton = spanCodigo ? spanCodigo.innerText.trim() : null;
+                    const codigoCarton = cartonDiv ? cartonDiv.dataset.cartonCodigo : null;
                     if (codigoCarton && window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
                         window.bingoSocket.send(JSON.stringify({
                             tipo: 'marcar_casilla',
@@ -538,6 +537,30 @@
 
             if (datos?.bola_extraida !== null && datos?.bola_extraida !== undefined) {
                 aplicarNuevaBola(datos.bola_extraida, {persistirMeta: true, marcarCeldas: true});
+            }
+
+            if (datos?.partida_finalizada) {
+                const idSiguiente = datos?.id_siguiente_partida;
+                const overlay = document.createElement('div');
+                overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--bs-body-bg);z-index:9999;display:flex;justify-content:center;align-items:center;flex-direction:column;";
+                overlay.innerHTML = `
+                    <div class="text-center px-4 w-100">
+                        <i class="fas fa-flag-checkered text-success mb-3" style="font-size: clamp(3rem, 8vw, 5rem);"></i>
+                        <h2 class="fw-bold text-body mb-2">¡Ronda finalizada!</h2>
+                        <p class="text-muted fs-5">${idSiguiente ? 'Iniciando la siguiente ronda...' : 'Volviendo al inicio del sistema...'}</p>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                setTimeout(() => {
+                    if (idSiguiente) {
+                        let urlSiguiente = "{% url 'sala_espera' id_partida=999999 %}".replace('999999', idSiguiente);
+                        window.location.replace(urlSiguiente);
+                    } else {
+                        window.location.replace("{% url 'inicio' %}");
+                    }
+                }, 2200);
+                return;
             }
         } catch (error) {
             console.warn('No fue posible avanzar la bola automáticamente:', error);
@@ -658,9 +681,8 @@
 
                 // FIX: Extraer el código del cartón leyendo el texto naranja
                 const cartonDiv = celda.closest('.carton-dinamico');
-                const spanCodigo = cartonDiv.querySelector('.text-warning');
-                if (!spanCodigo) return;
-                const codigoCarton = spanCodigo.innerText.trim();
+                const codigoCarton = cartonDiv.dataset.cartonCodigo;
+                if (!codigoCarton) return;
 
 
 
@@ -735,8 +757,7 @@
                     marcarCeldaLocal(celda, numero);
 
                     const cartonDiv = celda.closest('.carton-dinamico');
-                    const spanCodigo = cartonDiv ? cartonDiv.querySelector('.text-warning') : null;
-                    const codigoCarton = spanCodigo ? spanCodigo.innerText.trim() : null;
+                    const codigoCarton = cartonDiv ? cartonDiv.dataset.cartonCodigo : null;
                     if (codigoCarton && window.bingoSocket && window.bingoSocket.readyState === WebSocket.OPEN) {
                         window.bingoSocket.send(JSON.stringify({
                             tipo: 'marcar_casilla',
@@ -772,8 +793,7 @@
             const cartones = document.querySelectorAll('.carton-dinamico');
             let cartonDiv = null;
             cartones.forEach(c => {
-                const span = c.querySelector('.text-warning');
-                if (span && span.innerText.trim() === codigoCarton) {
+                if (c.dataset.cartonCodigo === codigoCarton) {
                     cartonDiv = c;
                 }
             });
